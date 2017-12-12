@@ -13,10 +13,13 @@ import psycopg2 as pg2
 import pandas as pd
 import Plotter
 import analyzer
+import matplotlib.pyplot as plt
+import numpy as np
 
 conn = pg2.connect(database='arithmeticstudy', user='postgres',
                    password=input('pw: '))
 cur = conn.cursor()
+
 
 ###########Generate plot of accuracy in enforced addition and non-enforced addition trials.
 #EA trials are those where sum > singleton, but augend < singleton and addend < singleton.
@@ -42,7 +45,7 @@ query1 = '''
 cur.execute(query1)
 dataout1 = cur.fetchall()
 colnames1 = [desc.name for desc in cur.description]
-data = pd.DataFrame.from_records(dataout1,columns=colnames1)
+data1 = pd.DataFrame.from_records(dataout1,columns=colnames1)
 
 #Generate a scatterplot of the results. 
 xdict = {'data':data['nonea_pcorrect'],
@@ -53,7 +56,8 @@ ydict = {'data':data['ea_pcorrect'],
          'limits':(.5,1)}
 
 h,axes = plt.subplots(1,1)
-Plotter.scatter(axes,xdict,ydict,title='Animal Accuracy')
+Plotter.scatter(axes,xdata=data1['nonea_pcorrect'],xlabel='Accuracy in non-EA trials',xlim=(.5,1),
+                ydata=data1['ea_pcorrect'],ylabel='Accuracy in EA trials',ylim=(.5,1),title='Animal Accuracy')
 
 
 ###########Fit a regression model to animals' choice data, and then plot coefficients.
@@ -68,12 +72,34 @@ query2 = '''
 cur.execute(query2)
 dataout2 = cur.fetchall()
 colnames2 = [desc.name for desc in cur.description]
-data = pd.DataFrame.from_records(dataout2,columns=colnames2)
+data2 = pd.DataFrame.from_records(dataout2,columns=colnames2)
 
 #Fit regression model to separate sessions
-output = analyzer.logistic_regression(data,model='chose_sum ~ augend + addend + singleton',
+output = analyzer.logistic_regression(data2,model='chose_sum ~ augend + addend + singleton',
                                       groupby=['animal','session'])
 
 #setup plotting structures
 
-h,axes = plt.subplots(1,1)
+h,axes = plt.subplots(2,2)
+#plot augend vs. addend
+Plotter.scatter(axes[0,0],xdata=output['b_augend'].loc[output['animal']=='Ruffio'],xlabel = 'Augend coefficient',
+                ydata=output['b_addend'].loc[output['animal']=='Ruffio'],ylabel = 'Addend coefficient',
+                title='Aug vs. Add Weight',color=[1,0,0])
+Plotter.scatter(axes[0,0],xdata=output['b_augend'].loc[output['animal']=='Xavier'],xlabel = 'Augend coefficient',
+                ydata=output['b_addend'].loc[output['animal']=='Xavier'],ylabel = 'Addend coefficient',
+                title='Aug vs. Add Weight',color=[0,0,1])
+#plot augend vs. singleton
+Plotter.scatter(axes[0,1],xdata=output['b_augend'].loc[output['animal']=='Ruffio'],xlabel = 'Augend coefficient',
+                ydata=output['b_singleton'].loc[output['animal']=='Ruffio'],ylabel = 'Singleton coefficient',
+                title='Aug vs. Sing Weight',color=[1,0,0])
+Plotter.scatter(axes[0,1],xdata=output['b_augend'].loc[output['animal']=='Xavier'],xlabel = 'Augend coefficient',
+                ydata=output['b_singleton'].loc[output['animal']=='Xavier'],ylabel = 'Singleton coefficient',
+                title='Aug vs. Sing Weight',color=[0,0,1])
+#plot addend vs. singleton
+Plotter.scatter(axes[1,1],xdata=output['b_addend'].loc[output['animal']=='Ruffio'],xlabel = 'Addend coefficient',
+                ydata=output['b_singleton'].loc[output['animal']=='Ruffio'],ylabel = 'Singleton coefficient',
+                title='Add vs. Sing Weight',color=[1,0,0])
+Plotter.scatter(axes[1,1],xdata=output['b_addend'].loc[output['animal']=='Xavier'],xlabel = 'Addend coefficient',
+                ydata=output['b_singleton'].loc[output['animal']=='Xavier'],ylabel = 'Singleton coefficient',
+                title='Add vs. Sing Weight',color=[0,0,1])
+plt.tight_layout()
