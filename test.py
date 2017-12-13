@@ -20,6 +20,7 @@ dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curat
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
 cur = conn.cursor()
 
+#%%
 ###########Generate plot of accuracy in enforced addition and non-enforced addition trials.
 #EA trials are those where sum > singleton, but augend < singleton and addend < singleton.
 #First generate a SQL query to the database
@@ -52,6 +53,7 @@ Plotter.scatter(axes,xdata=data1['nonEA_pcorrect'],xlabel='Accuracy in non-EA tr
                 ydata=data1['EA_pcorrect'],ylabel='Accuracy in EA trials',ylim=(.5,1),title='Animal Accuracy')
 
 
+#%%
 ###########Fit a regression model to animals' choice data, and then plot coefficients.
 #SQL query
 query2 = '''
@@ -95,3 +97,26 @@ Plotter.scatter(axes[1,1],xdata=output['b_addend'].loc[output['animal']=='Xavier
                 ydata=output['b_singleton'].loc[output['animal']=='Xavier'],ylabel = 'Singleton coefficient',
                 title='Add vs. Sing Weight',color=[0,0,1])
 plt.tight_layout()
+
+
+
+#%%
+###########Perform backwards elimination on the full logistic regression model.
+#SQL query
+query3 = '''
+        SELECT session,animal,CAST(chose_sum AS int) as chose_sum,augend,addend,singleton
+        FROM behavioralstudy
+        WHERE experiment = 'Addition'
+        ORDER BY animal,session
+'''
+#Execute query, then convert to pandas table
+cur.execute(query3)
+dataout3 = cur.fetchall()
+colnames3 = [desc[0] for desc in cur.description]
+data3 = pd.DataFrame.from_records(dataout3,columns=colnames3)
+
+#Perform backwards elimination on full model. All interactions/terms with augend,
+#addend, and singleton.
+model = 'chose_sum ~ augend * addend * singleton'
+be_results = analyzer.logistic_backwardselimination_sessionwise(data3,model=model,
+                groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)

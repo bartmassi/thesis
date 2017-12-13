@@ -13,6 +13,7 @@ import pandas as pd #data structures
 import statsmodels.genmod.generalized_linear_model as sreg
 import statsmodels as sm
 import patsy #specify models in R-like way.  
+import scipy
 
 #This runs a logistic regression on data.
 #df: the data frame containing the variables that are parts of the model
@@ -84,3 +85,48 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True):
 
     #convert dictionary into dataframe
     return pd.DataFrame(mout_dict)
+    
+#Starts with the full model specified by 'model', and performs backwards induction.
+#The criteria is that each term must be significant (at pthresh) in statistically
+#more than groupby_thresh sessions.
+#Groupby must be specified. 
+def logistic_backwardselimination_sessionwise(df,model,groupby,groupby_thresh=.05,pthresh=.05):
+    
+    #get out column names and store removed columns
+    y, X = patsy.dmatrices(model,df)
+    all_columns = X.design_info.column_names
+    remaining_columns = all_columns
+    removed_columns = ['']
+
+    
+    #perform backwards elimination.
+    #terminate when all terms are significant in more than groupby_thresh sessions.
+    flag = 1;
+    while(flag):
+        
+        #update model by removing bad terms
+        thismodel = model + ' - '.join(removed_columns)
+        #start by performing logistic regression
+        outdf = logistic_regression(df,thismodel,groupby,compute_cpd=False)
+        total_sessions = outdf.shape[0];
+
+        #get the number of sessions that each term is significant in
+        n_sig_sess = [np.sum(outdf['p_'+rc]<pthresh) for rc in remaining_columns]
+        term_p = []
+
+        #binomial test on p(significant) for each term.
+        for i in range(0,len(remaining_columns)):
+            term_p.append(scipy.stats.binom_test(n_sig_sess[i],total_sessions,
+                            p=groupby_thresh,alternative='greater'))
+            
+        #find index of worst performing term
+        worstind = np.argmax(term_p)
+        if(term_p[worstind] > groupby_thresh):
+            removed_columns.append(remaining_columns.pop(worstind))
+        else:
+            flag = 0;        
+    
+    #return final model
+    final_model = model = model + ' - '.join(removed_columns);
+    return {'final_model':final_model,'final_modelout':outdf,
+    'remaining_terms':remaining_columns,'removed_columns':removed_columns[1:]}
