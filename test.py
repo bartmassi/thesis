@@ -5,6 +5,9 @@ Testing ground for running analysis on data from the Arithmetic study.
 @author: bart
 creation date: 12-11-17
 """
+
+
+##Run these prior to running any code here. 
 #cd D:\\Bart\\Dropbox\\code\\python\\leelab\\thesis
 #%load_ext autoreload
 #%autoreload 2
@@ -15,6 +18,14 @@ import Plotter
 import analyzer
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
+
+def getData(cur,query):
+    cur.execute(query)
+    dataout = cur.fetchall()
+    colnames = [desc[0] for desc in cur.description]
+    data = pd.DataFrame.from_records(dataout,columns=colnames)
+    return data
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
@@ -106,7 +117,7 @@ plt.tight_layout()
 query3 = '''
         SELECT session,animal,CAST(chose_sum AS int) as chose_sum,augend,addend,singleton
         FROM behavioralstudy
-        WHERE experiment = 'Addition'
+        WHERE experiment = 'FlatLO' and animal = 'Ruffio'
         ORDER BY animal,session
 '''
 #Execute query, then convert to pandas table
@@ -120,3 +131,67 @@ data3 = pd.DataFrame.from_records(dataout3,columns=colnames3)
 model = 'chose_sum ~ augend * addend * singleton'
 be_results = analyzer.logistic_backwardselimination_sessionwise(data3,model=model,
                 groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)
+
+#%%
+###########Fit approximate number model from Dehaene 2007
+
+#Make SQl query
+query3 = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO' and animal='Ruffio'
+        ORDER BY animal,session
+'''
+#Execute query, then convert to pandas table
+data = getData(cur,query3)
+
+#decision variable is p(sum correct)
+#linearDV = data['augend']+data['addend']-data['singleton']
+#scale = w*np.sqrt(data['augend']**2. + data['addend']**2 + data['singleton']**2)
+#predResponse = 1-scipy.stats.norm(linearDV,scale).cdf(0)
+
+#setup cost function for fitting
+realmin = np.finfo(np.double).tiny #smallest possible floating point number
+cost = lambda y,h: -np.sum(y*np.log(np.max([h,np.ones(len(h))*realmin],axis=0))+
+                    (1-y)*np.log(np.max([1-h,np.ones(len(h))*realmin],axis=0))); 
+
+#setup gaussian approximate number model from Dehaene 2007, single scaling factor
+dm_onescale = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
+         w*np.sqrt(data['augend']**2. + data['addend']**2 + data['singleton']**2)).cdf(0)
+
+#Dehaene 2007, separate scaling factor for augend.
+dm_augscale = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
+         np.sqrt((w[0]**2)*data['augend']**2 + (w[1]**2)*data['addend']**2 + (w[1]**2)*data['singleton']**2)).cdf(0)
+
+#setup  objective for fitting
+objfun_dm_onescale = lambda w: cost(data['chose_sum'],dm_onescale(w,data))
+objfun_dm_augscale = lambda w: cost(data['chose_sum'],dm_augscale(w,data))
+
+#perform fitting
+opt_dm_onescale = scipy.optimize.minimize(fun=objfun_dm_onescale,x0=(1.0),bounds=((.00001,None),))
+opt_dm_augscale = scipy.optimize.minimize(fun=objfun_dm_augscale,x0=(1.0,1.0),bounds=((.00001,None),(.00001,None),))
+
+w_best_dm_onescale = opt_dm_onescale.x
+bic_dm_onescale = opt_dm_onescale.fun*2 + np.log(data.shape[0])*1
+w_best_dm_augscale = opt_dm_augscale.x
+bic_dm_augscale = opt_dm_augscale.fun*2 + np.log(data.shape[0])*2
+                                                 
+#add predictions to data structure
+data['pred_dm_onescale'] = dm_onescale(w_best_dm_onescale,data)
+data['pred_dm_augscale'] = dm_augscale(w_best_dm_augscale,data)
+data['ratio'] = (data['augend']+data['addend'])/data['singleton']
+
+uratio = data['ratio'].drop_duplicates()
+
+ratiopred_dm_onescale = [np.mean(data['pred_dm_onescale'].loc[data['ratio'] == ur]) for ur in uratio]
+ratiopred_dm_augscale = [np.mean(data['pred_dm_augscale'].loc[data['ratio'] == ur]) for ur in uratio]
+choices = [np.mean(data['chose_sum'].loc[data['ratio']==ur]) for ur in uratio]
+
+h,axes = plt.subplots(1,2)
+Plotter.scatter(axes[0],choices,xlabel = 'Actual p(choose sum)',
+                ydata= ratiopred_dm_onescale,ylabel = 'Predicted p(choose sum)',
+                title='DM2007, single scaling factor',color=[0,0,0],xlim=[0,1],ylim=[0,1])
+Plotter.scatter(axes[1],choices,xlabel = 'Actual p(choose sum)',
+                ydata= ratiopred_dm_augscale,ylabel = 'Predicted p(choose sum)',
+                title='DM2007, separate aug scaling factor',color=[0,0,0],xlim=[0,1],ylim=[0,1])
+plt.tight_layout()

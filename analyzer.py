@@ -86,6 +86,7 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True):
     #convert dictionary into dataframe
     return pd.DataFrame(mout_dict)
     
+    
 #Starts with the full model specified by 'model', and performs backwards induction.
 #The criteria is that each term must be significant (at pthresh) in statistically
 #more than groupby_thresh sessions.
