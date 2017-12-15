@@ -14,7 +14,9 @@ creation date: 12-11-17
 """
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
+import scipy
 #https://matplotlib.org/faq/howto_faq.html#save-multiple-plots-to-one-pdf-file
 
 def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=[],color=[1,1,1],title='',identity='on'):
@@ -24,16 +26,14 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
     fontsize = 14
 
 
-    #plot data
-    print(ax)
-    
+    #plot data    
     ax.scatter(xdata,ydata,s=40,facecolor=color,edgecolor=[0,0,0],linewidth=2)        
 
     #set title
     ax.set_title(title,fontname=plotfont,fontsize=fontsize)
     
     #get axis handle and set plot aspect ratio
-    ax.set_aspect('equal')
+    #ax.set_aspect('equal')
     
     #turn off top and right frame, and tick details
     ax.spines['top'].set_color('none')
@@ -75,3 +75,117 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
 
     
     return ax
+
+#makes a line plot with desired specifications
+def lineplot(ax,xdata,ydata,sem=0,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[],xticks=[],yticks=[],color=[1,1,1],title='',identity='on'):
+
+    #font information
+    plotfont = 'Arial'
+    fontsize = 14
+
+
+    #plot data
+    
+    ax.errorbar(xdata,ydata,yerr=sem,xerr=0,ls=ls,color=color,linewidth=2)        
+
+    #set title
+    ax.set_title(title,fontname=plotfont,fontsize=fontsize)
+    
+    #get axis handle and set plot aspect ratio
+    #ax.set_aspect('equal')
+    
+    #turn off top and right frame, and tick details
+    ax.spines['top'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.tick_params(direction='out')
+    
+    #set axis limits
+    if(xlim):
+        ax.set_xlim(xlim)
+        ax.set_autoscale_on(False)
+    if(ylim):
+        ax.set_ylim(ylim)
+        ax.set_autoscale_on(False)
+        
+        
+    #set xticks
+    if(xticks):
+        ax.set_xticks(xticks)
+    if(yticks):
+        ax.set_yticks(yticks)
+    
+    
+    #add axis labels
+    if(xlabel):
+        ax.set_xlabel(xlabel,fontname=plotfont,fontsize=fontsize)
+    if(ylabel):
+        ax.set_ylabel(ylabel,fontname=plotfont,fontsize=fontsize)
+
+    
+    return ax
+    
+    
+#This uses 3 groupby variables to plot a DV against one IV in subplots, a
+#second IV in separate lines, and a third IV on the x-axis. 
+def panelplots(data,plotvar,groupby,scattervar=[],xlim=[],ylim=[],xlabel=[],ylabel=[]):
+    
+    assert len(groupby)==3
+
+    if(not scattervar):
+        scattervar = plotvar
+
+    #get unique values of each groupby variable
+    groupby_unique = data[groupby].drop_duplicates()#unique values of groupby variable
+    marginal_groupby_unique = []
+    for gb in groupby:
+        marginal_groupby_unique.append(data[gb].drop_duplicates().sort_values(inplace=False))
+    
+    #get plot meta-data
+    n_subplot = len(marginal_groupby_unique[0])
+    n_lines = len(marginal_groupby_unique[1])
+    n_x = len(marginal_groupby_unique[2])
+    
+    #setup colormap
+    cmap = plt.get_cmap('cool');
+    cmap_index = np.arange(0, 1+1/(n_lines-1), 1/(n_lines-1))
+    #determine subplot dimensions
+    maxcol = 3.0;
+    nrow = int(np.ceil(n_subplot/maxcol));
+    ncol = int(np.min([n_subplot,maxcol]))
+    
+    #make the plots
+    h,axes = plt.subplots(nrow,ncol,figsize=(5,5))
+    for i in range(0,n_subplot):
+        for j in range(0,n_lines):
+            
+            #get out the groupby data
+            ydata1 = []
+            ydata2 = []
+            yerr = []
+            for k in range(0,n_x):
+                #collect scatter data
+                scatterdata = data[scattervar].loc[np.sum(data[groupby] == 
+                                    np.array([marginal_groupby_unique[0].iloc[i],
+                                    marginal_groupby_unique[1].iloc[j],
+                                    marginal_groupby_unique[2].iloc[k]]),axis=1)==len(groupby)]
+                plotdata = data[plotvar].loc[np.sum(data[groupby] == 
+                                    np.array([marginal_groupby_unique[0].iloc[i],
+                                    marginal_groupby_unique[1].iloc[j],
+                                    marginal_groupby_unique[2].iloc[k]]),axis=1)==len(groupby)]
+                                
+                #compute the mean and SEM - this might be removed in the future 
+                #to enforce the data table to contain SEM and mean data explicitly. 
+                ydata1.append(np.mean(scatterdata))
+                ydata2.append(np.mean(plotdata))
+                yerr.append(scipy.stats.sem(scatterdata))
+                
+            #plot all data
+            lineplot(axes[int(np.floor(i/ncol)),i % ncol],xdata=marginal_groupby_unique[2],ydata=ydata1,sem=yerr,
+                     ls='none',color=cmap(cmap_index[j]),ylim=ylim,xlim=xlim,ylabel=ylabel,xlabel=xlabel)
+            scatter(axes[int(np.floor(i/ncol)),i % ncol],xdata=marginal_groupby_unique[2],ydata=ydata1
+                     ,color=cmap(cmap_index[j]),ylim=ylim,xlim=xlim,ylabel=ylabel,xlabel=xlabel,identity='off')
+            lineplot(axes[int(np.floor(i/ncol)),i % ncol],xdata=marginal_groupby_unique[2],ydata=ydata2,
+                          color=cmap(cmap_index[j]),ylim=ylim,xlim=xlim,ylabel=ylabel,xlabel=xlabel)
+        axes[int(np.floor(i/ncol)),i % ncol].legend()

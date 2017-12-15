@@ -195,3 +195,19 @@ Plotter.scatter(axes[1],choices,xlabel = 'Actual p(choose sum)',
                 ydata= ratiopred_dm_augscale,ylabel = 'Predicted p(choose sum)',
                 title='DM2007, separate aug scaling factor',color=[0,0,0],xlim=[0,1],ylim=[0,1])
 plt.tight_layout()
+
+
+#%%
+#Make SQl query
+query3 = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO' and animal='Ruffio'
+        ORDER BY animal,session
+'''
+#Execute query, then convert to pandas table
+data = getData(cur,query3)
+
+Plotter.panelplots(data,plotvar='chose_sum',scattervar='chose_sum',groupby=['augend','addend','diff'],ylim=[0,1],xlim=[-2,2])
+plt.tight_layout()
