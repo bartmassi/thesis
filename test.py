@@ -204,9 +204,10 @@ plt.tight_layout()
 
 
 #%%
+#Fit a model that weights base rate probabilities and approximate sum representation
 #Make SQl query
 query3 = '''
-        SELECT session,animal,chose_sum,augend as augs,addend as adds,singleton as sing,
+        SELECT session,animal,chose_sum,augend,addend,singleton,
         augend+addend-singleton as diff
         FROM behavioralstudy
         WHERE experiment = 'FlatLO' and animal='Ruffio'
@@ -215,6 +216,83 @@ query3 = '''
 #Execute query, then convert to pandas table
 data = getData(cur,query3)
 
-Plotter.panelplots(data,plotvar='chose_sum',scattervar='chose_sum',groupby=['augs','adds','diff'],
-                   ylim=[0,1],xlim=[-2,2],xlabel='diff',ylabel='p(choose sum)')
+
+#get p(correct) for each value of singleton in the flatLO experiment
+
+#generate trialset
+aug = np.arange(1,7,1)
+add = np.array([1,2,4])
+diff = np.array([-2,-1,1,2])
+trials = []
+for i in range(0,len(aug)):
+    if aug[i]<4:
+        itercount = 1
+    else:
+        itercount = 2
+    for it in range(0,itercount):
+        for j in range(0,len(add)):
+            if(aug[i]==1 and add[j]==1):
+                trials.append([aug[i],add[j],aug[i]+add[j]+1])
+                trials.append([aug[i],add[j],aug[i]+add[j]-1])
+            else:
+                for k in range(0,len(diff)):
+                    trials.append([aug[i],add[j],aug[i]+add[j]+diff[k]])
+                    
+#compute p(correct) for each singleton
+tset = np.array(trials);
+using = np.unique(tset[:,2])
+pcorrect_sing = []
+for si in using:
+    pcorrect_sing.append(np.mean((tset[tset[:,2]==si,0]+tset[tset[:,2]==si,1]) > tset[tset[:,2]==si,2]))
+
+pcs= np.array(pcorrect_sing);
+
+#setup cost function for fitting
+realmin = np.finfo(np.double).tiny #smallest possible floating point number
+cost = lambda y,h: -np.sum(y*np.log(np.max([h,np.ones(len(h))*realmin],axis=0))+
+                    (1-y)*np.log(np.max([1-h,np.ones(len(h))*realmin],axis=0))); 
+
+#setup gaussian approximate number model from Dehaene 2007, single scaling factor
+dm_onescale = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
+         w*np.sqrt(data['augend']**2. + data['addend']**2 + data['singleton']**2)).cdf(0)
+
+#setup dynamic base-rate weighting function
+dm_weighting_model = lambda w,data: (1-w[data['singleton']])*dm_onescale(w[0],data) + w[data['singleton']]*pcs[data['singleton']-1]
+
+model = dm_weighting_model
+
+#setup  objective for fitting
+objfun = lambda w: cost(data['chose_sum'],model(w,data))
+
+#perform fitting
+opt = scipy.optimize.minimize(fun=objfun,x0=(1.0,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5),
+            bounds=((.00001,None),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),
+                    (realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),
+                    (realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),))
+
+h,ax = plt.subplots(1,1)
+Plotter.lineplot(ax,xdata=using,ydata=opt.x[1:],xlabel='Singleton',ylabel='P(correct|singleton) weight',
+                 title='dynamic singleton weighting',color=[0,0,0])
+
+w_best = opt.x
+bic = opt.fun*2 + np.log(data.shape[0])*1
+                                                 
+#add predictions to data structure
+data['pred'] = model(w_best,data)
+data['ratio'] = (data['augend']+data['addend'])/data['singleton']
+
+uratio = data['ratio'].drop_duplicates()
+
+ratiopred = [np.mean(data['pred'].loc[data['ratio'] == ur]) for ur in uratio]
+choices = [np.mean(data['chose_sum'].loc[data['ratio']==ur]) for ur in uratio]
+
+Plotter.panelplots(data,plotvar='pred',scattervar='chose_sum',groupby=['augend','addend','diff'],
+                   ylim=[0,1],xlim=[-2,2],xlabel='diff',ylabel='p(choose sum)',
+                    xticks=[-2,-1,0,1,2],yticks=[0,.25,.5,.75,1])
+plt.tight_layout()
+
+h,axes = plt.subplots(1,2)
+Plotter.scatter(axes[0],choices,xlabel = 'Actual p(choose sum)',
+                ydata= ratiopred_dm_onescale,ylabel = 'Predicted p(choose sum)',
+                title='DM2007+baserate',color=[0,0,0],xlim=[0,1],ylim=[0,1])
 plt.tight_layout()

@@ -92,7 +92,7 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
 
 #makes a line plot with desired specifications
 def lineplot(ax,xdata,ydata,sem=0,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[],
-             xticks=[],yticks=[],color=[1,1,1],title=[],identity='on',label=[]):
+             xticks=[],yticks=[],color=[0,0,0],title=[],identity='on',label=[]):
 
     #font information
     plotfont = 'Arial'
