@@ -7,7 +7,7 @@ creation date: 12-11-17
 """
 
 
-##Run these prior to running any code here. 
+##Run these prior to running any code. 
 #cd D:\\Bart\\Dropbox\\code\\python\\leelab\\thesis
 #%load_ext autoreload
 #%autoreload 2
@@ -137,7 +137,8 @@ be_results = analyzer.logistic_backwardselimination_sessionwise(data3,model=mode
 
 #Make SQl query
 query3 = '''
-        SELECT session,animal,chose_sum,augend,addend,singleton
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff
         FROM behavioralstudy
         WHERE experiment = 'FlatLO' and animal='Ruffio'
         ORDER BY animal,session
@@ -187,6 +188,11 @@ ratiopred_dm_onescale = [np.mean(data['pred_dm_onescale'].loc[data['ratio'] == u
 ratiopred_dm_augscale = [np.mean(data['pred_dm_augscale'].loc[data['ratio'] == ur]) for ur in uratio]
 choices = [np.mean(data['chose_sum'].loc[data['ratio']==ur]) for ur in uratio]
 
+Plotter.panelplots(data,plotvar='pred_dm_onescale',scattervar='chose_sum',groupby=['augend','addend','diff'],
+                   ylim=[0,1],xlim=[-2,2],xlabel='diff',ylabel='p(choose sum)',
+                    xticks=[-2,-1,0,1,2],yticks=[0,.25,.5,.75,1])
+plt.tight_layout()
+
 h,axes = plt.subplots(1,2)
 Plotter.scatter(axes[0],choices,xlabel = 'Actual p(choose sum)',
                 ydata= ratiopred_dm_onescale,ylabel = 'Predicted p(choose sum)',
@@ -200,7 +206,7 @@ plt.tight_layout()
 #%%
 #Make SQl query
 query3 = '''
-        SELECT session,animal,chose_sum,augend,addend,singleton,
+        SELECT session,animal,chose_sum,augend as augs,addend as adds,singleton as sing,
         augend+addend-singleton as diff
         FROM behavioralstudy
         WHERE experiment = 'FlatLO' and animal='Ruffio'
@@ -209,5 +215,6 @@ query3 = '''
 #Execute query, then convert to pandas table
 data = getData(cur,query3)
 
-Plotter.panelplots(data,plotvar='chose_sum',scattervar='chose_sum',groupby=['augend','addend','diff'],ylim=[0,1],xlim=[-2,2])
+Plotter.panelplots(data,plotvar='chose_sum',scattervar='chose_sum',groupby=['augs','adds','diff'],
+                   ylim=[0,1],xlim=[-2,2],xlabel='diff',ylabel='p(choose sum)')
 plt.tight_layout()
