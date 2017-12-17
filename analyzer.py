@@ -131,3 +131,20 @@ def logistic_backwardselimination_sessionwise(df,model,groupby,groupby_thresh=.0
     final_model = model = model + ' - '.join(removed_columns);
     return {'final_model':final_model,'final_modelout':outdf,
     'remaining_terms':remaining_columns,'removed_columns':removed_columns[1:]}
+
+#model takes X and free parameters
+def fit_model(model,X,y,cost='default',*args):
+    
+    
+    realmin = np.finfo(np.double).tiny #smallest possible floating point number
+
+    #define cost function    
+    if(cost=='default'):
+        cost = lambda y,h: -np.sum(y*np.log(np.max([h,np.ones(len(h))*realmin],axis=0))+
+                    (1-y)*np.log(np.max([1-h,np.ones(len(h))*realmin],axis=0))); 
+                                                   
+    objfun = lambda par: cost(y,model(par,X))
+    opt = scipy.optimize.minimize(fun=objfun,x0=(1.0,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5),
+            *args)
+    
+    return opt

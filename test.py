@@ -12,20 +12,14 @@ creation date: 12-11-17
 #%load_ext autoreload
 #%autoreload 2
 
+import Plotter
+import Analyzer
+import Helper
 import sqlite3
 import pandas as pd
-import Plotter
-import analyzer
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
-
-def getData(cur,query):
-    cur.execute(query)
-    dataout = cur.fetchall()
-    colnames = [desc[0] for desc in cur.description]
-    data = pd.DataFrame.from_records(dataout,columns=colnames)
-    return data
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
@@ -80,7 +74,7 @@ colnames2 = [desc[0] for desc in cur.description]
 data2 = pd.DataFrame.from_records(dataout2,columns=colnames2)
 
 #Fit regression model to separate sessions
-output = analyzer.logistic_regression(data2,model='chose_sum ~ augend + addend + singleton',
+output = Analyzer.logistic_regression(data2,model='chose_sum ~ augend + addend + singleton',
                                       groupby=['animal','session'])
 
 #setup plotting structures
@@ -129,7 +123,7 @@ data3 = pd.DataFrame.from_records(dataout3,columns=colnames3)
 #Perform backwards elimination on full model. All interactions/terms with augend,
 #addend, and singleton.
 model = 'chose_sum ~ augend * addend * singleton'
-be_results = analyzer.logistic_backwardselimination_sessionwise(data3,model=model,
+be_results = Analyzer.logistic_backwardselimination_sessionwise(data3,model=model,
                 groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)
 
 #%%
@@ -214,61 +208,29 @@ query3 = '''
         ORDER BY animal,session
 '''
 #Execute query, then convert to pandas table
-data = getData(cur,query3)
-
-
+data = Helper.getData(cur,query3)
 #get p(correct) for each value of singleton in the flatLO experiment
+flatlo = Helper.getFlatLOTrialset()
+pcs = flatlo['pcs']
+using = flatlo['using']
 
-#generate trialset
-aug = np.arange(1,7,1)
-add = np.array([1,2,4])
-diff = np.array([-2,-1,1,2])
-trials = []
-for i in range(0,len(aug)):
-    if aug[i]<4:
-        itercount = 1
-    else:
-        itercount = 2
-    for it in range(0,itercount):
-        for j in range(0,len(add)):
-            if(aug[i]==1 and add[j]==1):
-                trials.append([aug[i],add[j],aug[i]+add[j]+1])
-                trials.append([aug[i],add[j],aug[i]+add[j]-1])
-            else:
-                for k in range(0,len(diff)):
-                    trials.append([aug[i],add[j],aug[i]+add[j]+diff[k]])
-                    
-#compute p(correct) for each singleton
-tset = np.array(trials);
-using = np.unique(tset[:,2])
-pcorrect_sing = []
-for si in using:
-    pcorrect_sing.append(np.mean((tset[tset[:,2]==si,0]+tset[tset[:,2]==si,1]) > tset[tset[:,2]==si,2]))
 
-pcs= np.array(pcorrect_sing);
-
-#setup cost function for fitting
-realmin = np.finfo(np.double).tiny #smallest possible floating point number
-cost = lambda y,h: -np.sum(y*np.log(np.max([h,np.ones(len(h))*realmin],axis=0))+
-                    (1-y)*np.log(np.max([1-h,np.ones(len(h))*realmin],axis=0))); 
-
+#Specify model function
 #setup gaussian approximate number model from Dehaene 2007, single scaling factor
 dm_onescale = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
          w*np.sqrt(data['augend']**2. + data['addend']**2 + data['singleton']**2)).cdf(0)
-
 #setup dynamic base-rate weighting function
 dm_weighting_model = lambda w,data: (1-w[data['singleton']])*dm_onescale(w[0],data) + w[data['singleton']]*pcs[data['singleton']-1]
-
 model = dm_weighting_model
 
-#setup  objective for fitting
-objfun = lambda w: cost(data['chose_sum'],model(w,data))
+opt = Analyzer.fit_model(dm_weighting_model,data,data['chose_sum'],)
 
-#perform fitting
-opt = scipy.optimize.minimize(fun=objfun,x0=(1.0,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5),
-            bounds=((.00001,None),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),
+#bounds on variance scaling parameter in numerosity model, and prior weights for
+#each value of singleton
+realmin = np.finfo(np.double).tiny
+bounds = ((.00001,None),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),
                     (realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),
-                    (realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),))
+                    (realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),)
 
 h,ax = plt.subplots(1,1)
 Plotter.lineplot(ax,xdata=using,ydata=opt.x[1:],xlabel='Singleton',ylabel='P(correct|singleton) weight',
