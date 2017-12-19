@@ -19,6 +19,17 @@ from matplotlib.backends.backend_pdf import PdfPages
 import scipy
 #https://matplotlib.org/faq/howto_faq.html#save-multiple-plots-to-one-pdf-file
 
+def standardize_ticks(ax,plotfont,fontsize):
+    for tick in ax.get_yticklabels():
+        tick.set_fontname(plotfont)
+        tick.set_fontsize(fontsize)
+    
+    for tick in ax.get_xticklabels():
+        tick.set_fontname(plotfont)
+        tick.set_fontsize(fontsize)
+        
+    
+
 def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=[],
             color=[1,1,1],title=[],identity='on',label=[]):
 
@@ -152,7 +163,71 @@ def lineplot(ax,xdata,ydata,sem=0,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[]
     
     return ax
     
+
+def gridplot(ax,datamat,title=[],xticks=[],yticks=[],xticklabels=[],yticklabels=[],xlabel=[],ylabel=[],
+             cmap=plt.cm.jet,clim=[0,1],cticks=[],cticklabels=[],clabel=[]):
     
+    #font information
+    plotfont = 'Arial'
+    fontsize = 14
+
+    #make plot
+    cax = ax.matshow(datamat,origin='lower',cmap=cmap)
+    cax.set_clim(clim)
+    
+    ax.xaxis.set_ticks_position('bottom')
+    
+    #setup color bar
+    cbar = plt.gcf().colorbar(cax,ax=ax,ticks=cticks,fraction=0.046, pad=0.04)
+    cbar.ax.set_xticklabels([])
+    for tick in cbar.ax.get_yticklabels():
+        tick.set_fontsize(fontsize)
+        tick.set_fontname(plotfont)
+    if(cticklabels):
+        cbar.ax.set_yticklabels(cticklabels,fontsize=fontsize,fontname=plotfont)
+    if(clabel):
+        cbar.ax.set_ylabel(clabel,fontsize=fontsize,fontname=plotfont)
+        cbar.ax.yaxis.set_label_position('right')
+    
+    #set title
+    if(title):
+        ax.set_title(title,fontname=plotfont,fontsize=fontsize)
+    
+    #set x and y axis ticks
+    if(not isinstance(xticks,list)):
+        xticks = xticks.tolist()
+    if(not isinstance(yticks,list)):
+        yticks = yticks.tolist()
+    
+    if(xticks):
+        ax.set_xticks(xticks)
+    if(yticks):
+        ax.set_yticks(yticks)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.tick_params(direction='out')
+    
+    #set tick labels
+    if(not isinstance(xticklabels,list)):
+        xticklabels = xticklabels.tolist()
+    if(not isinstance(yticklabels,list)):
+        yticklabels = yticklabels.tolist()
+        
+    if(xticklabels):
+        ax.set_xticklabels(xticklabels)
+    if(yticklabels):
+        ax.set_yticklabels(yticklabels)
+        
+    standardize_ticks(ax,plotfont,fontsize)
+    
+    #add axis labels
+    if(xlabel):
+        ax.set_xlabel(xlabel,fontname=plotfont,fontsize=fontsize)
+    if(ylabel):
+        ax.set_ylabel(ylabel,fontname=plotfont,fontsize=fontsize)
+#%%
+#Below are functions that use the above plotting functions to make more complicated plots.
+
 #This uses 3 groupby variables to plot a DV against one IV in subplots, a
 #second IV in separate lines, and a third IV on the x-axis. 
 def panelplots(data,plotvar,groupby,scattervar=[],xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=[]):

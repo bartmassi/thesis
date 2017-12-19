@@ -14,6 +14,7 @@ import statsmodels.genmod.generalized_linear_model as sreg
 import statsmodels as sm
 import patsy #specify models in R-like way.  
 import scipy
+import itertools
 
 #This runs a logistic regression on data.
 #df: the data frame containing the variables that are parts of the model
@@ -46,6 +47,7 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True):
         #create and fit model object
         mdl = sreg.GLM(endog=y,exog=X,family=sm.genmod.families.family.Binomial())
         thismout = mdl.fit()
+        thismout.bic = thismout.deviance+np.log(X.shape[0])*len(thismout.params)
         
         #placeholder for computing coefficient of partial determination
         if(compute_cpd):
@@ -132,8 +134,14 @@ def logistic_backwardselimination_sessionwise(df,model,groupby,groupby_thresh=.0
     return {'final_model':final_model,'final_modelout':outdf,
     'remaining_terms':remaining_columns,'removed_columns':removed_columns[1:]}
 
-#model takes X and free parameters
-def fit_model(model,X,y,cost='default',*args):
+#fits a model to given data.
+#model: function handle to the model. Must take parameters,data as arguments (in that order)
+#X: input data to the model.
+#y: variable to be predicted by model
+#cost: the cost function used to evaluate the model. If not specified, sum of
+#log likelihood is used.
+#Other arguments are passed to scipy.optimize.minimize.
+def fit_model(model,X,y,x0,cost='default',**kwargs):
     
     
     realmin = np.finfo(np.double).tiny #smallest possible floating point number
@@ -144,7 +152,38 @@ def fit_model(model,X,y,cost='default',*args):
                     (1-y)*np.log(np.max([1-h,np.ones(len(h))*realmin],axis=0))); 
                                                    
     objfun = lambda par: cost(y,model(par,X))
-    opt = scipy.optimize.minimize(fun=objfun,x0=(1.0,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5),
-            *args)
+    opt = scipy.optimize.minimize(fun=objfun,x0=x0,
+            **kwargs)
+    
+    opt['bic'] = opt.fun*2 + np.log(len(y))*len(x0)
+    opt['init'] = x0
     
     return opt
+    
+#Fits a model to given data using a range of initializations.
+#model: function handle to the model. Must take parameters,data as arguments (in that order)
+#X: input data to the model.
+#y: variable to be predicted by model
+#parrange: a tuple (or list) of initial parameter values to be used for each 
+#parameter. Must be exactly the length of the number of free parameters that 
+#model takes. 
+#cost: the cost function used to evaluate the model. If not specified, sum of
+#log likelihood is used.
+#Other arguments are passed to scipy.optimize.minimize.
+#TODO: this is not scalable, because itertools.product returns the entire 
+#cartesian product of the lists in parrange. Likewise, all outputs are stored.
+def fit_grid_search(model,X,y,parrange,cost='default',**kwargs):
+    
+    #get all combinations of initial values
+    parcombs = itertools.product(*parrange)
+    
+    #perform grid search
+    opt = []
+    for p in parcombs:
+        print(p)
+        opt.append(fit_model(model=model,X=X,y=y,x0=p,cost=cost,**kwargs))
+    
+    #figure out best fitting. 
+    best_ind = np.argmin([o.fun for o in opt])  
+    
+    return opt[best_ind]

@@ -8,9 +8,9 @@ creation date: 12-11-17
 
 
 ##Run these prior to running any code. 
-#cd D:\\Bart\\Dropbox\\code\\python\\leelab\\thesis
-#%load_ext autoreload
-#%autoreload 2
+cd D:\\Bart\\Dropbox\\code\\python\\leelab\\thesis
+%load_ext autoreload
+%autoreload 2
 
 import Plotter
 import Analyzer
@@ -20,6 +20,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
+from matplotlib.backends.backend_pdf import PdfPages
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
@@ -204,7 +205,7 @@ query3 = '''
         SELECT session,animal,chose_sum,augend,addend,singleton,
         augend+addend-singleton as diff
         FROM behavioralstudy
-        WHERE experiment = 'FlatLO' and animal='Ruffio'
+        WHERE experiment = 'FlatLO' and animal='Xavier'
         ORDER BY animal,session
 '''
 #Execute query, then convert to pandas table
@@ -213,6 +214,7 @@ data = Helper.getData(cur,query3)
 flatlo = Helper.getFlatLOTrialset()
 pcs = flatlo['pcs']
 using = flatlo['using']
+avgratios = flatlo['avgratio']
 
 
 #Specify model function
@@ -220,31 +222,66 @@ using = flatlo['using']
 dm_onescale = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
          w*np.sqrt(data['augend']**2. + data['addend']**2 + data['singleton']**2)).cdf(0)
 #setup dynamic base-rate weighting function
-dm_weighting_model = lambda w,data: (1-w[data['singleton']])*dm_onescale(w[0],data) + w[data['singleton']]*pcs[data['singleton']-1]
-model = dm_weighting_model
+dm_prior_weighting_model = lambda w,data: (1-w[data['singleton']])*dm_onescale(w[0],data) \
+                                           + w[data['singleton']]*pcs[data['singleton']-1]
 
-opt = Analyzer.fit_model(dm_weighting_model,data,data['chose_sum'],)
+prior_weighting = lambda w: (w[0] + w[1]*(data['augend']+data['addend'])/data['singleton'] \
+                             + w[2]*np.abs(pcs[data['singleton']-1]-.5))
+dm_prior_usefulness_model = lambda w,data: pcs[data['singleton']-1]*prior_weighting(w[1:]) \
+                            + dm_onescale(w[0],data)*(1-prior_weighting(w[1:]))
+ 
 
-#bounds on variance scaling parameter in numerosity model, and prior weights for
-#each value of singleton
+#Fit model w/ 12 separate weights for each singleton
 realmin = np.finfo(np.double).tiny
 bounds = ((.00001,None),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),
                     (realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),
                     (realmin,1-realmin),(realmin,1-realmin),(realmin,1-realmin),)
+x0 = (1,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5)#initial parameter values
+opt1 = Analyzer.fit_model(model=dm_prior_weighting_model,X=data,y=data['chose_sum'],x0=x0,bounds=bounds)
+
+#fit model w/ 3 term function for weighting
+bounds = ((.00001,None),(None,None),(None,None),(None,None),)
+x0 = (.5,0,.5,.5)
+opt2 = Analyzer.fit_model(model=dm_prior_usefulness_model,X=data,y=data['chose_sum'],x0=x0,bounds=bounds)
 
 h,ax = plt.subplots(1,1)
-Plotter.lineplot(ax,xdata=using,ydata=opt.x[1:],xlabel='Singleton',ylabel='P(correct|singleton) weight',
-                 title='dynamic singleton weighting',color=[0,0,0])
+avgweights = np.array([np.mean(prior_weighting(opt2.x[1:])[data['singleton']==si]) for si in using])
+Plotter.lineplot(ax,xdata=using,ydata=avgweights,xlabel='Singleton',ylabel='P(correct|singleton) weight',
+                 title='prior-informativeness weighting',color=[1,0,0],label='informativeness weighting')
+Plotter.lineplot(ax,xdata=using,ydata=opt1.x[1:],xlabel='Singleton',ylabel='P(correct|singleton) weight',
+                 title='individual singleton weighting',color=[0,0,0],label='individual weighting')
 
-w_best = opt.x
-bic = opt.fun*2 + np.log(data.shape[0])*1
+#test grid search
+prange = [np.linspace(0,1,3),np.linspace(-1,1,4),np.linspace(-1,1,4),np.arange(-5,5,4)]
+prange = [1.0,-0.3,0.3,-1]
+Analyzer.fit_grid_search(model=dm_prior_usefulness_model,X=data,y=data['chose_sum'],
+                         parrange=prange,bounds=bounds)
+
+
+#test linear_model
+lr = Analyzer.logistic_regression(data,model='chose_sum ~ augend * addend * singleton')
+print(lr.bic)
+
+logistic = lambda x:1./(1.+np.exp(-x))
+linear_model = lambda w,data: w[0]+w[1]*data['augend']+w[2]*data['addend']+w[3]*data['singleton']
+logistic_model = lambda w,data: logistic(linear_model(w,data))
+x0 = [1,1,1,1]
+opt_test = Analyzer.fit_model(model=logistic_model,X=data,y=data['chose_sum'],x0=x0)
+
+#Plot weights aside prior informativeness and avg difficulty
+h,ax = plt.subplots(1,1)
+Plotter.lineplot(ax,xdata=using,ydata=opt1.x[1:],xlabel='Singleton',ylabel='P(correct|singleton) weight',
+                 title='dynamic singleton weighting',color=[0,0,0],label='Weights')
+Plotter.lineplot(ax,xdata=using,ydata=pcs,color=[1,0,0],label='p(sum correct)')
+Plotter.lineplot(ax,xdata=using,ydata=avgratios,color=[0,0,1],label='avg ratio')
+plt.legend(loc=0,fontsize='x-small')
                                                  
 #add predictions to data structure
-data['pred'] = model(w_best,data)
+data['pred'] = lr.fittedvalues[0]#logistic_model(opt_test.x,data)
 data['ratio'] = (data['augend']+data['addend'])/data['singleton']
 
+#Make predictions at each ratio
 uratio = data['ratio'].drop_duplicates()
-
 ratiopred = [np.mean(data['pred'].loc[data['ratio'] == ur]) for ur in uratio]
 choices = [np.mean(data['chose_sum'].loc[data['ratio']==ur]) for ur in uratio]
 
@@ -253,8 +290,70 @@ Plotter.panelplots(data,plotvar='pred',scattervar='chose_sum',groupby=['augend',
                     xticks=[-2,-1,0,1,2],yticks=[0,.25,.5,.75,1])
 plt.tight_layout()
 
-h,axes = plt.subplots(1,2)
-Plotter.scatter(axes[0],choices,xlabel = 'Actual p(choose sum)',
-                ydata= ratiopred_dm_onescale,ylabel = 'Predicted p(choose sum)',
+h,axes = plt.subplots(1,1)
+Plotter.scatter(axes,choices,xlabel = 'Actual p(choose sum)',
+                ydata= ratiopred,ylabel = 'Predicted p(choose sum)',
                 title='DM2007+baserate',color=[0,0,0],xlim=[0,1],ylim=[0,1])
 plt.tight_layout()
+
+#%%
+#determine how often the animal chooses sum as a function of the product of aug,
+#add, and sing
+query = '''
+        SELECT animal,augend*addend*singleton as prod,AVG(chose_sum) as pchosesum
+        FROM behavioralstudy
+        WHERE experiment='FlatLO'
+        GROUP BY animal,prod
+        ORDER BY animal,prod
+'''
+#Execute query, then convert to pandas table
+data = Helper.getData(cur,query)
+
+h,ax = plt.subplots(1,2)
+Plotter.scatter(ax[0],xdata=data['prod'].loc[data['animal']=='Xavier'],
+                ydata=data['pchosesum'].loc[data['animal']=='Xavier'],
+            xlabel='aug*add*sing',ylabel='p(chose sum)',ylim=[0,1],xlim=[1,288],color=[1,0,0])
+Plotter.scatter(ax[1],xdata=data['prod'].loc[data['animal']=='Ruffio'],
+                ydata=data['pchosesum'].loc[data['animal']=='Ruffio'],
+            xlabel='aug*add*sing',ylabel='p(chose sum)',ylim=[0,1],xlim=[1,288],color=[0,0,1])
+
+
+
+#%%
+#determine how often the animals choose the sum as a function of sum and singleton
+#show this as a matrix.
+
+query = '''
+        SELECT animal,augend+addend as sum,singleton,AVG(chose_sum) as chose_sum
+        FROM behavioralstudy
+        WHERE experiment='Addition'
+        GROUP BY animal,sum,singleton
+        ORDER BY animal,sum,singleton
+'''
+
+data = Helper.getData(cur,query)
+
+usum = np.unique(data['sum'])
+nusum = len(usum)
+using = np.unique(data['singleton'])
+nusing = len(using)
+
+#
+xperf = np.array([[data['chose_sum'].loc[(data['singleton']==si) & (data['sum']==su) & (data['animal']=='Xavier')] if su != si else np.nan for su in usum] for si in using])
+rperf = np.array([[data['chose_sum'].loc[(data['singleton']==si) & (data['sum']==su) & (data['animal']=='Ruffio')] if su != si else np.nan for su in usum] for si in using])
+
+
+with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
+    h,ax = plt.subplots(1,1)
+    Plotter.gridplot(ax,xperf,cmap=plt.cm.seismic,title='Monkey X',
+        xticks=np.arange(0,len(usum),1),xticklabels=usum,xlabel='Sum',
+        yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
+        cticks=[0,.5,1],clabel='p(choose sum)')
+    pdf.savefig()
+    
+    h,ax = plt.subplots(1,1)
+    Plotter.gridplot(ax,rperf,cmap=plt.cm.seismic,title='Monkey R',
+        xticks=np.arange(0,len(usum),1),xticklabels=usum,xlabel='Sum',
+        yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
+        cticks=[0,.5,1],clabel='p(choose sum)')
+    pdf.savefig()
