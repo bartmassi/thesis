@@ -357,3 +357,28 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
         yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
         cticks=[0,.5,1],clabel='p(choose sum)')
     pdf.savefig()
+    
+#get psychometric curve data
+query2 = '''
+        SELECT animal,augend+addend-singleton as diff,chose_sum,'animal'
+        FROM behavioralstudy
+        WHERE experiment='Addition'
+        ORDER BY animal,diff
+'''
+
+data2 = Helper.getData(cur,query2)
+
+
+udiffs = np.unique(data2['diff'])
+x_psum = [np.mean(data2['chose_sum'].loc[(data2['diff']==di) & (data2['animal']=='Xavier')]) for di in udiffs]
+r_psum = [np.mean(data2['chose_sum'].loc[(data2['diff']==di) & (data2['animal']=='Ruffio')]) for di in udiffs]
+x_sem = [scipy.stats.sem(data2['chose_sum'].loc[(data2['diff']==di) & (data2['animal']=='Xavier')]) for di in udiffs]
+r_sem = [scipy.stats.sem(data2['chose_sum'].loc[(data2['diff']==di) & (data2['animal']=='Ruffio')]) for di in udiffs]
+
+
+h,ax = plt.subplots(1,1)
+Plotter.lineplot(ax,xdata=udiffs,
+    ydata=x_psum,sem=x_sem,title='Monkey X',xlabel='Sum - Singleton',xticks = [-8,-4,0,4,8],
+    ylabel='P(choose sum)',yticks=[0,.25,.5,.75,1])
+Plotter.scatter(ax,xdata=udiffs,
+    ydata=x_psum,identity='off')

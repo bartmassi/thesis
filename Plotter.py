@@ -102,7 +102,7 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
     return ax
 
 #makes a line plot with desired specifications
-def lineplot(ax,xdata,ydata,sem=0,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[],
+def lineplot(ax,xdata,ydata,sem=None,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[],
              xticks=[],yticks=[],color=[0,0,0],title=[],identity='on',label=[]):
 
     #font information
@@ -113,9 +113,9 @@ def lineplot(ax,xdata,ydata,sem=0,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[]
     #plot data
     
     if(label):
-        ax.errorbar(xdata,ydata,yerr=sem,xerr=0,ls=ls,color=color,linewidth=2,label=label)
+        ax.errorbar(xdata,ydata,yerr=sem,xerr=None,ls=ls,color=color,linewidth=2,label=label)
     else:
-        ax.errorbar(xdata,ydata,yerr=sem,xerr=0,ls=ls,color=color,linewidth=2)      
+        ax.errorbar(xdata,ydata,yerr=sem,xerr=None,ls=ls,color=color,linewidth=2)      
 
     #set title
     if(title):
