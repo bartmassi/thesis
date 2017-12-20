@@ -40,10 +40,11 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
 
     #plot data    
     if(label):
-        ax.scatter(xdata,ydata,s=40,facecolor=color,edgecolor=[0,0,0],linewidth=2,label=label)        
+        plothandle = ax.scatter(xdata,ydata,s=40,facecolor=color,edgecolor=[0,0,0],linewidth=2,label=label)        
     else:
-        ax.scatter(xdata,ydata,s=40,facecolor=color,edgecolor=[0,0,0],linewidth=2)    
-    #set title
+        plothandle = ax.scatter(xdata,ydata,s=40,facecolor=color,edgecolor=[0,0,0],linewidth=2)    
+    
+        #set title
     if(title):
         ax.set_title(title,fontname=plotfont,fontsize=fontsize)
     
@@ -95,11 +96,17 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
         #ylimits = ax.get_ylim()
         limits = (min([xlimits[0],ylimits[0]]),max([xlimits[1],ylimits[1]]))
         ax.plot(limits,limits,'--',color='black')
+    elif(identity.lower() == 'full'):
+        identityline = (min([xlimits[0],ylimits[0]]),max([xlimits[1],ylimits[1]]))
+        invidentityline = (max([xlimits[1],ylimits[1]]),min([xlimits[0],ylimits[0]]))
+        ax.plot(identityline,invidentityline,'--',color='black')
+        ax.plot(xlimits,[0,0],'--',color='black')
+        ax.plot([0,0],ylimits,'--',color='black')
     else:
         pass
 
     
-    return ax
+    return plothandle
 
 #makes a line plot with desired specifications
 def lineplot(ax,xdata,ydata,sem=None,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[],
@@ -113,9 +120,9 @@ def lineplot(ax,xdata,ydata,sem=None,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel
     #plot data
     
     if(label):
-        ax.errorbar(xdata,ydata,yerr=sem,xerr=None,ls=ls,color=color,linewidth=2,label=label)
+        plothandle = ax.errorbar(xdata,ydata,yerr=sem,xerr=None,ls=ls,color=color,linewidth=2,label=label)
     else:
-        ax.errorbar(xdata,ydata,yerr=sem,xerr=None,ls=ls,color=color,linewidth=2)      
+        plothandle = ax.errorbar(xdata,ydata,yerr=sem,xerr=None,ls=ls,color=color,linewidth=2)      
 
     #set title
     if(title):
@@ -161,7 +168,7 @@ def lineplot(ax,xdata,ydata,sem=None,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel
         ax.set_ylabel(ylabel,fontname=plotfont,fontsize=fontsize)
 
     
-    return ax
+    return plothandle
     
 
 def gridplot(ax,datamat,title=[],xticks=[],yticks=[],xticklabels=[],yticklabels=[],xlabel=[],ylabel=[],
