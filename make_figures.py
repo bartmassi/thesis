@@ -224,7 +224,7 @@ mout3 = Analyzer.logistic_regression(data9,model,groupby=['animal','session','od
 #put it all in a PDF
 with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
-    h,ax = plt.subplots(1,2)
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     #Plot p(choose sum) as a function of sum and singleton.
     Plotter.gridplot(ax[0],xperf,cmap=plt.cm.seismic,title='Monkey X',
         xticks=np.arange(0,len(usum),1),xticklabels=usum,xlabel='Sum',
@@ -236,12 +236,12 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
         yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
         cticks=[0,.5,1],clabel='p(choose sum)')
     
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #Plot psychometric curves
-    h,ax = plt.subplots(1,2)
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     Plotter.lineplot(ax[0],xdata=udiffs,
         ydata=x_psum,sem=x_sem,title='Monkey X',xlabel='Sum - Singleton',xticks = [-8,-4,0,4,8],
         ylabel='P(choose sum)',yticks=[0,.25,.5,.75,1],ylim=[0,1],xlim=[-8,8])
@@ -254,12 +254,12 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     Plotter.scatter(ax[1],xdata=udiffs,
         ydata=r_psum,identity='off')
     
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #Plot accuracy in EA/non-EA trials
-    h,ax = plt.subplots(2,2)
+    h,ax = plt.subplots(2,2,figsize=[12,8])
     Plotter.scatter(ax[0,0],xdata=x_nea,ydata=x_ea,xlabel='Performance in non-EA',ylabel='Performance in EA',
                     title='Monkey X',ylim=[.6,1],xlim=[.6,1],xticks=[.6,.8,1],yticks=[.6,.8,1])
     Plotter.scatter(ax[0,1],xdata=r_nea,ydata=r_ea,xlabel='Performance in non-EA',ylabel='Performance in EA',
@@ -270,12 +270,12 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
                     title='Monkey X',ylim=[.8,1],xlim=[.8,1],xticks=[.8,.9,1],yticks=[.8,.9,1])
     Plotter.scatter(ax[1,1],xdata=r_set1,ydata=r_set2,xlabel='Performance in set 1',ylabel='Performance in set 2',
                     title='Monkey R',ylim=[.8,1],xlim=[.8,1],xticks=[.8,.9,1],yticks=[.8,.9,1])
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #Plot coefficients in Addition experiment
-    h,ax = plt.subplots(1,2)
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     Plotter.scatter(ax[0],xdata=mout1['b_augend'].loc[(mout1['odd_trial']==1) & (mout1['animal']=='Xavier')],
                     ydata=mout1['b_addend'].loc[(mout1['odd_trial']==0) & (mout1['animal']=='Xavier')],
                     xlabel='Augend coefficient',ylabel='Other coefficient',color=[1,0,0],label='Addend',
@@ -293,12 +293,12 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
                     ydata=mout1['b_singleton'].loc[(mout1['odd_trial']==1) & (mout1['animal']=='Ruffio')],
                     xlabel='Augend coefficient',ylabel='Other coefficient',color=[0,0,1],label='Singleton')
     ax[1].legend(loc='center right',fontsize='x-small',scatterpoints=1,frameon=False)
-    plt.tight_layout();
+    #plt.tight_layout();
     pdf.savefig()
     
     
     #plot uni dots vs. quad dots coefficients in quad dots experiment
-    h,ax = plt.subplots(2,3)
+    h,ax = plt.subplots(2,3,figsize=[18,8])
     Plotter.scatter(ax[0,0],xdata=mout2['b_aug_num_green'].loc[(mout2['odd_trial']==1) & (mout2['animal']=='Xavier')],
                     ydata=mout2['b_aug_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Xavier')],
                     ylabel='Quad-dots coef.',
@@ -322,7 +322,7 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
                     ydata=mout2['b_sing_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Ruffio')],
                     xlabel='Uni-dots coef.',
                     xlim=[-7,6.5],ylim=[-7,7],identity='full',title='Monkey R, Singleton')
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
@@ -337,12 +337,12 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
                     xlabel='Performance in VT',ylabel='Performance in non-VT',label='Monkey R',
                     ylim=[.4,1],xlim=[.4,1],xticks=[.4,.6,.8,1],yticks=[.4,.6,.8,1],color=[0,0,1])
     ax.legend(loc='center left',fontsize='x-small',scatterpoints=1,frameon=False)
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #plot performance as a function of singleton
-    h,ax = plt.subplots(1,3)
+    h,ax = plt.subplots(1,3,figsize=[18,4])
     for si in using_flatlo:
         Plotter.lineplot(ax[0],xdata=udiff_flatlo,ydata=x_sing_perf[si-1],sem=x_sing_perf_sem[si-1],
             title='Monkey X',xlabel='Sum - Singleton',xticks = [-2,-1,0,1,2],ylim=[0,1],xlim=[-2,2],
@@ -356,23 +356,23 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     cbar = mpl.colorbar.ColorbarBase(ax[2],cmap=cmap_singplot,norm=norm,ticks=using)
     bbox = plt.get(ax[0],'position')
     cbpos = plt.get(ax[2],'position')
-    plt.tight_layout()
-    ax[2].set_position([cbpos.x0,cbpos.y0+.2,cbpos.width*.1,cbpos.height*.5])
+    #plt.tight_layout()
+    #ax[2].set_position([cbpos.x0,cbpos.y0+.2,cbpos.width*.1,cbpos.height*.5])
     pdf.savefig()
     
-    h,ax = plt.subplots(1,2)
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     Plotter.scatter(ax[0],xdata=x_arithperf,ydata=x_threshperf,ylim=[.5,1],xlim=[.5,1],
                     xlabel='Arithmetic strategy',ylabel='Singleton-Thresholding Strategy',
                     title='Monkey X')
     Plotter.scatter(ax[1],xdata=r_arithperf,ydata=r_threshperf,ylim=[.5,1],xlim=[.5,1],
                     xlabel='Arithmetic strategy',ylabel='Singleton-Thresholding Strategy',
                     title='Monkey R')
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #Plot p(choose difference) as a function of difference and singleton in subtraction expt.
-    h,ax = plt.subplots(1,2)
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     Plotter.gridplot(ax[0],xperf_sub,cmap=plt.cm.seismic,title='Monkey X',
         xticks=np.arange(0,len(usum_sub),1),xticklabels=usum_sub,xlabel='Sum',
         yticks=np.arange(0,len(using_sub),1),yticklabels=using_sub,ylabel='Singleton',
@@ -383,12 +383,12 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
         yticks=np.arange(0,len(using_sub),1),yticklabels=using_sub,ylabel='Singleton',
         cticks=[0,.5,1],clabel='p(choose difference)')
     
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #Plot psychometric curves
-    h,ax = plt.subplots(1,2)
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     Plotter.lineplot(ax[0],xdata=udiffs_sub,
         ydata=x_psum_sub,sem=x_sem_sub,title='Monkey X',xlabel='Difference - Singleton',xticks = [-8,-4,0,4,8],
         ylabel='P(choose difference)',yticks=[0,.25,.5,.75,1],ylim=[0,1],xlim=[-8,8])
@@ -401,22 +401,22 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     Plotter.scatter(ax[1],xdata=udiffs_sub,
         ydata=r_psum_sub,identity='off')
     
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #plot accuracy in set1 and set2 in subtraction
-    h,ax = plt.subplots(1,2)
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     Plotter.scatter(ax[0],xdata=x_set1_sub,ydata=x_set2_sub,xlabel='Performance in set 1',ylabel='Performance in set 2',
                     title='Monkey X',ylim=[.8,1],xlim=[.8,1],xticks=[.8,.9,1],yticks=[.8,.9,1])
     Plotter.scatter(ax[1],xdata=r_set1_sub,ydata=r_set2_sub,xlabel='Performance in set 1',ylabel='Performance in set 2',
                     title='Monkey R',ylim=[.8,1],xlim=[.8,1],xticks=[.8,.9,1],yticks=[.8,.9,1])
-    plt.tight_layout()
+    #plt.tight_layout()
     pdf.savefig()
     
     
     #Plot coefficients in Subtraction experiment
-    h,ax = plt.subplots(2,2)
+    h,ax = plt.subplots(2,2,figsize=[4*2,6*2])
     Plotter.scatter(ax[0,0],xdata=mout3['b_augend'].loc[(mout3['odd_trial']==1) & (mout3['animal']=='Xavier')],
                     ydata=mout3['b_addend'].loc[(mout3['odd_trial']==0) & (mout3['animal']=='Xavier')],
                     xlabel='Minuend coefficient',ylabel='Other coefficient',label='Subtrahend',
@@ -434,5 +434,5 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
                     ydata=mout3['b_singleton'].loc[(mout3['odd_trial']==1) & (mout3['animal']=='Ruffio')],
                     xlabel='Minuend coefficient',ylabel='Other coefficient',label='Singleton',
                     xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey X')
-    plt.tight_layout();
+    #plt.tight_layout();
     pdf.savefig()
