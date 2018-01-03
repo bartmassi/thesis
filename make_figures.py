@@ -416,7 +416,7 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
     
     #Plot coefficients in Subtraction experiment
-    h,ax = plt.subplots(2,2,figsize=[4*2,6*2])
+    h,ax = plt.subplots(2,2,figsize=[6*2,4*2])
     Plotter.scatter(ax[0,0],xdata=mout3['b_augend'].loc[(mout3['odd_trial']==1) & (mout3['animal']=='Xavier')],
                     ydata=mout3['b_addend'].loc[(mout3['odd_trial']==0) & (mout3['animal']=='Xavier')],
                     xlabel='Minuend coefficient',ylabel='Other coefficient',label='Subtrahend',

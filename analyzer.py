@@ -15,10 +15,67 @@ import statsmodels as sm
 import patsy #specify models in R-like way.  
 import scipy
 import itertools
+import Helper
 
+realmin = np.finfo(np.double).tiny
+
+
+#This function returns a dictionary with anonymous functions for fitting
+#models to arithmetic data. All models return a probability of choosing sum.
+#
+#The models expect specific naming schemes for columns in 'data', that correspond
+#to the column names in the SQLite DB. 
+#The models also take, in order, their parameters and the data.
+def get_models():
+    #setup cost function for fitting
+    #realmin = np.finfo(np.double).tiny #smallest possible floating point number
+    cost = lambda y,h: -np.sum(y*np.log(np.max([h,np.ones(len(h))*realmin],axis=0))+
+                        (1-y)*np.log(np.max([1-h,np.ones(len(h))*realmin],axis=0))); 
+
+    #get information about singleton prior in flat log odds trialset
+    flatlo = Helper.getFlatLOTrialset()
+    pcs = flatlo['pcs']
+    pcs_var = pcs*(1-pcs)
+                                               
+    #setup gaussian approximate number model from Dehaene 2007, single scaling factor and intercept
+    #2 parameter
+    dm_onescale = lambda w,data: 1-scipy.stats.norm(w[0] + data['augend']+data['addend']-data['singleton'],
+             w[1]*np.sqrt(data['augend']**2. + data['addend']**2 + data['singleton']**2)).cdf(0)
+    
+    #Full Dehaene 2007, separate scaling factor for each group
+    #3 parameters
+    dm_var = lambda w,data: np.sqrt((w[0]**2)*data['augend']**2 + (w[1]**2)*data['addend']**2 + (w[2]**2)*data['singleton']**2)
+    dm_full = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
+             dm_var(w,data)).cdf(0)
+    
+    #Dehaene model w/ one scaling factor, and separate weight for each element of prior. 
+    #Meant for FlatLO experiment only.
+    #13 parameters
+    dm_prior_weighting = lambda w,data: (1-w[data['singleton']])*dm_onescale(w[[0,1]],data) \
+                                           + w[data['singleton']+1]*pcs[data['singleton']-1]
+
+    logistic = lambda x:1./(1.+np.exp(-x))
+    
+    #Dehaene model plus prior w/ optimal weighting of each
+    #3 parameters
+    weightfun = lambda w,data: dm_var(w,data)/(dm_var(w,data)+pcs_var[data['singleton']-1])
+    dm_prior_optimal = lambda w,data: (1-weightfun(w,data))*dm_full(w,data) + weightfun(w,data)*pcs[data['singleton']-1]
+
+    #Linear addition model.
+    #4 parameters
+    linear = lambda w,data: logistic(w[0] + w[1]*data['augend'] + w[2]*data['addend'] + w[3]*data['singleton'])
+    
+    models = {'cost':cost,'dm_onescale':dm_onescale,'dm_full':dm_full,
+    'dm_prior_weighting':dm_prior_weighting,'linear':linear,
+    'dm_prior_optimal':dm_prior_optimal,
+    'weightfun':weightfun}
+    
+    
+    return models
+    
 #This runs a logistic regression on data.
 #df: the data frame containing the variables that are parts of the model
-#model: the model. Uses patsy (i.e., R) formatting.
+#model: the model. Uses patsy (i.e., R) model specification.
 #groupby
 def logistic_regression(df,model,groupby='None',compute_cpd=True):
     
@@ -48,6 +105,7 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True):
         mdl = sreg.GLM(endog=y,exog=X,family=sm.genmod.families.family.Binomial())
         thismout = mdl.fit()
         thismout.bic = thismout.deviance+np.log(X.shape[0])*len(thismout.params)
+        thismout.pred = sreg.GLM.predict(thismout.fittedvalues,X)
         
         #placeholder for computing coefficient of partial determination
         if(compute_cpd):
@@ -172,18 +230,22 @@ def fit_model(model,X,y,x0,cost='default',**kwargs):
 #Other arguments are passed to scipy.optimize.minimize.
 #TODO: this is not scalable, because itertools.product returns the entire 
 #cartesian product of the lists in parrange. Likewise, all outputs are stored.
-def fit_grid_search(model,X,y,parrange,cost='default',**kwargs):
+def fit_grid_search(model,X,y,parrange,cost='default',verbose=True,**kwargs):
     
     #get all combinations of initial values
     parcombs = itertools.product(*parrange)
-    
+    nparcomb = np.prod([len(x) for x in parrange])
     #perform grid search
     opt = []
+    i = 0
     for p in parcombs:
-        print(p)
-        opt.append(fit_model(model=model,X=X,y=y,x0=p,cost=cost,**kwargs))
-    
+        opt.append(fit_model(model=model,X=X,y=y,x0=p,cost=cost,**kwargs))    
+        i += 1        
+        if(verbose):
+            if(i % 10 == 0):
+                print(str(100*i/nparcomb)+'% done')
+                
     #figure out best fitting. 
     best_ind = np.argmin([o.fun for o in opt])  
     
-    return opt[best_ind]
+    return opt[best_ind],opt

@@ -8,7 +8,6 @@ creation date: 12-11-17
 
 
 ##Run these prior to running any code. 
-cd D:\\Bart\\Dropbox\\code\\python\\leelab\\thesis
 %load_ext autoreload
 %autoreload 2
 
@@ -382,3 +381,34 @@ Plotter.lineplot(ax,xdata=udiffs,
     ylabel='P(choose sum)',yticks=[0,.25,.5,.75,1])
 Plotter.scatter(ax,xdata=udiffs,
     ydata=x_psum,identity='off')
+
+
+
+#%%
+###########Look at the trials where the animals' behavior deviates most from optimal. 
+
+#Make SQl query
+query = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO' and animal='Ruffio'
+        ORDER BY animal,session
+'''
+
+
+#Execute query, then convert to pandas table
+data = Helper.getData(cur,query)
+
+data['irrationality'] = (data['diff']>0)-data['chose_sum']
+
+with PdfPages('D:\\Bart\\Dropbox\\irrationality.pdf') as pdf:
+    Plotter.panelplots(data,plotvar='irrationality',groupby=['augend','addend','diff'],
+                       ylim=[-1,1],xlim=[-2,2],xlabel='diff',ylabel='P(sum correct) - P(choose sum)',
+                        xticks=[-2,-1,0,1,2],yticks=[-1,-.5,0,.5,1],horiz=0)
+    pdf.savefig()
+    Plotter.panelplots(data,plotvar='irrationality',groupby=['addend','augend','diff'],
+                       ylim=[-1,1],xlim=[-2,2],xlabel='diff',ylabel='P(sum correct) - P(choose sum)',
+                        xticks=[-2,-1,0,1,2],yticks=[-1,-.5,0,.5,1],horiz=0)
+    pdf.savefig()
+

@@ -237,7 +237,7 @@ def gridplot(ax,datamat,title=[],xticks=[],yticks=[],xticklabels=[],yticklabels=
 
 #This uses 3 groupby variables to plot a DV against one IV in subplots, a
 #second IV in separate lines, and a third IV on the x-axis. 
-def panelplots(data,plotvar,groupby,scattervar=[],xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=[]):
+def panelplots(data,plotvar,groupby,scattervar=[],xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=[],horiz=None):
     
     assert len(groupby)==3
 
@@ -264,8 +264,12 @@ def panelplots(data,plotvar,groupby,scattervar=[],xlim=[],ylim=[],xlabel=[],ylab
     ncol = int(np.min([n_subplot,maxcol]))
     
     #make the plots
-    h,axes = plt.subplots(nrow,ncol,figsize=(10,5))
+    h,axes = plt.subplots(nrow,ncol,figsize=[6*ncol,4*nrow])
     for i in range(0,n_subplot):
+        if(nrow==1):
+            ax = axes[i]
+        else:
+            ax = axes[int(np.floor(i/ncol)),i % ncol]
         for j in range(0,n_lines):
             
             #get out the groupby data
@@ -290,18 +294,20 @@ def panelplots(data,plotvar,groupby,scattervar=[],xlim=[],ylim=[],xlabel=[],ylab
                 yerr.append(scipy.stats.sem(scatterdata))
                 
             #plot all data
-            #plot 
-            lineplot(axes[int(np.floor(i/ncol)),i % ncol],xdata=marginal_groupby_unique[2],ydata=ydata1,sem=yerr,
+            lineplot(ax,xdata=marginal_groupby_unique[2],ydata=ydata1,sem=yerr,
                      ls='none',color=cmap(cmap_index[j]),ylim=ylim,xlim=xlim,ylabel=ylabel,xlabel=xlabel,
                                 xticks=xticks,yticks=yticks)
             
-            scatter(axes[int(np.floor(i/ncol)),i % ncol],xdata=marginal_groupby_unique[2],ydata=ydata1
+            scatter(ax,xdata=marginal_groupby_unique[2],ydata=ydata1
                      ,color=cmap(cmap_index[j]),ylim=ylim,xlim=xlim,ylabel=ylabel,xlabel=xlabel,identity='off',
                                 label=groupby[1]+'='+str(marginal_groupby_unique[1].iloc[j]),
                                 title=groupby[0]+'='+str(marginal_groupby_unique[0].iloc[i]),
                                 xticks=xticks,yticks=yticks)
-            lineplot(axes[int(np.floor(i/ncol)),i % ncol],xdata=marginal_groupby_unique[2],ydata=ydata2,
+            lineplot(ax,xdata=marginal_groupby_unique[2],ydata=ydata2,
                           color=cmap(cmap_index[j]),ylim=ylim,xlim=xlim,ylabel=ylabel,xlabel=xlabel,
                                 xticks=xticks,yticks=yticks)
+            
+            if(horiz is not None):
+                ax.plot(xlim,[horiz for x in xlim],'--',color='black')
         #turn on legend
-        axes[int(np.floor(i/ncol)),i % ncol].legend(fontsize='x-small',loc=0)
+        ax.legend(fontsize='x-small',loc=0)
