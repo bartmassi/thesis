@@ -412,3 +412,12 @@ with PdfPages('D:\\Bart\\Dropbox\\irrationality.pdf') as pdf:
                         xticks=[-2,-1,0,1,2],yticks=[-1,-.5,0,.5,1],horiz=0)
     pdf.savefig()
 
+
+query = '''
+        SELECT DISTINCT augend+addend as sum,singleton,trialset
+        FROM behavioralstudy
+        WHERE experiment = 'Subtraction' and animal='Xavier' and trialset==1
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query);

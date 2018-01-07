@@ -105,7 +105,6 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True):
         mdl = sreg.GLM(endog=y,exog=X,family=sm.genmod.families.family.Binomial())
         thismout = mdl.fit()
         thismout.bic = thismout.deviance+np.log(X.shape[0])*len(thismout.params)
-        thismout.pred = sreg.GLM.predict(thismout.fittedvalues,X)
         
         #placeholder for computing coefficient of partial determination
         if(compute_cpd):

@@ -8,8 +8,8 @@ Make figures for thesis.
 
 ##Run these prior to running any code. 
 #cd D:\\Bart\\Dropbox\\code\\python\\leelab\\thesis
-#%load_ext autoreload
-#%autoreload 2
+%load_ext autoreload
+%autoreload 2
 
 import Plotter
 import Analyzer
@@ -224,14 +224,14 @@ mout3 = Analyzer.logistic_regression(data9,model,groupby=['animal','session','od
 #put it all in a PDF
 with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
-    h,ax = plt.subplots(1,2,figsize=[12,4])
+    h,ax = plt.subplots(2,2,figsize=[12,4])
     #Plot p(choose sum) as a function of sum and singleton.
-    Plotter.gridplot(ax[0],xperf,cmap=plt.cm.seismic,title='Monkey X',
+    Plotter.gridplot(ax[0,0],xperf,cmap=plt.cm.seismic,title='Monkey X',
         xticks=np.arange(0,len(usum),1),xticklabels=usum,xlabel='Sum',
         yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
         cticks=[0,.5,1],clabel='p(choose sum)')    
 
-    Plotter.gridplot(ax[1],rperf,cmap=plt.cm.seismic,title='Monkey R',
+    Plotter.gridplot(ax[0,1],rperf,cmap=plt.cm.seismic,title='Monkey R',
         xticks=np.arange(0,len(usum),1),xticklabels=usum,xlabel='Sum',
         yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
         cticks=[0,.5,1],clabel='p(choose sum)')
@@ -241,17 +241,17 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
     
     #Plot psychometric curves
-    h,ax = plt.subplots(1,2,figsize=[12,4])
-    Plotter.lineplot(ax[0],xdata=udiffs,
+    #h,ax = plt.subplots(1,2,figsize=[12,4])
+    Plotter.lineplot(ax[1,0],xdata=udiffs,
         ydata=x_psum,sem=x_sem,title='Monkey X',xlabel='Sum - Singleton',xticks = [-8,-4,0,4,8],
         ylabel='P(choose sum)',yticks=[0,.25,.5,.75,1],ylim=[0,1],xlim=[-8,8])
-    Plotter.scatter(ax[0],xdata=udiffs,
+    Plotter.scatter(ax[1,0],xdata=udiffs,
         ydata=x_psum,identity='off')
     
-    Plotter.lineplot(ax[1],xdata=udiffs,
+    Plotter.lineplot(ax[1,1],xdata=udiffs,
         ydata=r_psum,sem=r_sem,title='Monkey R',xlabel='Sum - Singleton',xticks = [-8,-4,0,4,8],
         ylabel='P(choose sum)',yticks=[0,.25,.5,.75,1],ylim=[0,1],xlim=[-8,8])
-    Plotter.scatter(ax[1],xdata=udiffs,
+    Plotter.scatter(ax[1,1],xdata=udiffs,
         ydata=r_psum,identity='off')
     
     #plt.tight_layout()

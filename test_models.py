@@ -41,7 +41,7 @@ pracmin = .00001 #a practical minimum, so that we don't accidentally square real
 models = Analyzer.get_models()
 
 bounds = ((pracmin,1),(pracmin,1),(pracmin,1),)
-parrange = [np.linspace(pracmin,1,4),np.linspace(pracmin,1,4),np.linspace(pracmin,1,4)]
+parrange = [np.linspace(pracmin,1,10),np.linspace(pracmin,1,10),np.linspace(pracmin,1,10)]
 dm_mout,_ = Analyzer.fit_grid_search(models['dm_full'],data,data['chose_sum'],parrange,cost='default',bounds=bounds)
 
 linear_mout = Analyzer.fit_model(models['linear'],data,data['chose_sum'],x0=[1,1,1,1])
