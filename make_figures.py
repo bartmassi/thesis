@@ -8,8 +8,8 @@ Make figures for thesis.
 
 ##Run these prior to running any code. 
 #cd D:\\Bart\\Dropbox\\code\\python\\leelab\\thesis
-%load_ext autoreload
-%autoreload 2
+#%load_ext autoreload
+#%autoreload 2
 
 import Plotter
 import Analyzer
@@ -26,7 +26,7 @@ dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curat
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
 cur = conn.cursor()
 
-#%%
+
 #determine how often the animals choose the sum as a function of sum and singleton
 #show this as a matrix.
 
@@ -85,7 +85,7 @@ r_set2 = [np.mean(data2['chose_correct'].loc[(data2['animal']=='Ruffio') & (data
 
 #get logistic regression data for Addition study
 query3 = '''
-        SELECT animal,session,augend,addend,singleton,chose_sum,trial % 2 as odd_trial
+        SELECT animal,session,augend,addend,singleton,chose_sum
         FROM behavioralstudy
         WHERE experiment='Addition'
         ORDER BY animal,session
@@ -94,14 +94,14 @@ data3 = Helper.getData(cur,query3)
 
 #perform simple logistic regression
 model = 'chose_sum ~ augend + addend + singleton'
-mout1 = Analyzer.logistic_regression(data3,model,groupby=['animal','session','odd_trial'])
+mout1 = Analyzer.logistic_regression(data3,model,groupby=['animal','session'])
 
 
 
 #get logistic regression data for quad dots study
 query4 = '''
         SELECT animal,session,aug_num_green,add_num_green,sing_num_green,
-        aug_num_quad,add_num_quad,sing_num_quad,chose_sum,trial % 2 as odd_trial
+        aug_num_quad,add_num_quad,sing_num_quad,chose_sum
         FROM behavioralstudy
         WHERE experiment='QuadDots'
         ORDER BY animal,session
@@ -111,7 +111,7 @@ data4 = Helper.getData(cur,query4)
 #perform simple logistic regression
 model = 'chose_sum ~ aug_num_green + add_num_green + sing_num_green \
             + aug_num_quad + add_num_quad + sing_num_quad'
-mout2 = Analyzer.logistic_regression(data4,model,groupby=['animal','session','odd_trial'])
+mout2 = Analyzer.logistic_regression(data4,model,groupby=['animal','session'])
 
 
 #compare visual trials to non-visual trials
@@ -186,7 +186,7 @@ query8 = '''
         (((augend+addend)>singleton) AND (augend<singleton) AND (addend<singleton)) as ea,
         (chose_sum = ((augend+addend)>singleton)) as chose_correct
         FROM behavioralstudy
-        WHERE experiment='Addition'
+        WHERE experiment='Subtraction'
         ORDER BY animal,session,diff
 '''
 data8 = Helper.getData(cur,query8)
@@ -208,7 +208,7 @@ r_set2_sub = [np.mean(data8['chose_correct'].loc[(data8['animal']=='Ruffio') & (
 
 #get logistic regression data for Addition study
 query9 = '''
-        SELECT animal,session,augend,-addend as addend,singleton,chose_sum,trial % 2 as odd_trial
+        SELECT animal,session,augend,-addend as addend,singleton,chose_sum
         FROM behavioralstudy
         WHERE experiment='Subtraction'
         ORDER BY animal,session
@@ -217,21 +217,21 @@ data9 = Helper.getData(cur,query9)
 
 #perform simple logistic regression
 model = 'chose_sum ~ augend + addend + singleton'
-mout3 = Analyzer.logistic_regression(data9,model,groupby=['animal','session','odd_trial'])
+mout3 = Analyzer.logistic_regression(data9,model,groupby=['animal','session'])
 
 
 #%%
 #put it all in a PDF
-with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
+with PdfPages('D:\\Bart\\Dropbox\\Arith_Figures.pdf') as pdf:
     
-    h,ax = plt.subplots(2,2,figsize=[12,4])
+    h,ax = plt.subplots(1,2,figsize=[12,4])
     #Plot p(choose sum) as a function of sum and singleton.
-    Plotter.gridplot(ax[0,0],xperf,cmap=plt.cm.seismic,title='Monkey X',
+    Plotter.gridplot(ax[0],xperf,cmap=plt.cm.seismic,title='Monkey X',
         xticks=np.arange(0,len(usum),1),xticklabels=usum,xlabel='Sum',
         yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
         cticks=[0,.5,1],clabel='p(choose sum)')    
 
-    Plotter.gridplot(ax[0,1],rperf,cmap=plt.cm.seismic,title='Monkey R',
+    Plotter.gridplot(ax[1],rperf,cmap=plt.cm.seismic,title='Monkey R',
         xticks=np.arange(0,len(usum),1),xticklabels=usum,xlabel='Sum',
         yticks=np.arange(0,len(using),1),yticklabels=using,ylabel='Singleton',
         cticks=[0,.5,1],clabel='p(choose sum)')
@@ -241,17 +241,17 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
     
     #Plot psychometric curves
-    #h,ax = plt.subplots(1,2,figsize=[12,4])
-    Plotter.lineplot(ax[1,0],xdata=udiffs,
+    h,ax = plt.subplots(1,2,figsize=[12,4])
+    Plotter.lineplot(ax[0],xdata=udiffs,
         ydata=x_psum,sem=x_sem,title='Monkey X',xlabel='Sum - Singleton',xticks = [-8,-4,0,4,8],
         ylabel='P(choose sum)',yticks=[0,.25,.5,.75,1],ylim=[0,1],xlim=[-8,8])
-    Plotter.scatter(ax[1,0],xdata=udiffs,
+    Plotter.scatter(ax[0],xdata=udiffs,
         ydata=x_psum,identity='off')
     
-    Plotter.lineplot(ax[1,1],xdata=udiffs,
+    Plotter.lineplot(ax[1],xdata=udiffs,
         ydata=r_psum,sem=r_sem,title='Monkey R',xlabel='Sum - Singleton',xticks = [-8,-4,0,4,8],
         ylabel='P(choose sum)',yticks=[0,.25,.5,.75,1],ylim=[0,1],xlim=[-8,8])
-    Plotter.scatter(ax[1,1],xdata=udiffs,
+    Plotter.scatter(ax[1],xdata=udiffs,
         ydata=r_psum,identity='off')
     
     #plt.tight_layout()
@@ -276,21 +276,22 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
     #Plot coefficients in Addition experiment
     h,ax = plt.subplots(1,2,figsize=[12,4])
-    Plotter.scatter(ax[0],xdata=mout1['b_augend'].loc[(mout1['odd_trial']==1) & (mout1['animal']=='Xavier')],
-                    ydata=mout1['b_addend'].loc[(mout1['odd_trial']==0) & (mout1['animal']=='Xavier')],
+    Plotter.scatter(ax[0],xdata=mout1['b_augend'].loc[(mout1['animal']=='Xavier')],
+                    ydata=mout1['b_addend'].loc[(mout1['animal']=='Xavier')],
                     xlabel='Augend coefficient',ylabel='Other coefficient',color=[1,0,0],label='Addend',
                     xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey X')
-    Plotter.scatter(ax[0],xdata=mout1['b_augend'].loc[(mout1['odd_trial']==0) & (mout1['animal']=='Xavier')],
-                    ydata=mout1['b_singleton'].loc[(mout1['odd_trial']==1) & (mout1['animal']=='Xavier')],
-                    xlabel='Augend coefficient',ylabel='Other coefficient',color=[0,0,1],label='Singleton')
+    Plotter.scatter(ax[0],xdata=mout1['b_augend'].loc[(mout1['animal']=='Xavier')],
+                    ydata=mout1['b_singleton'].loc[(mout1['animal']=='Xavier')],
+                    xlabel='Augend coefficient',ylabel='Other coefficient',color=[0,0,1],label='Addend',
+                    xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey X')
     #ax[0].legend(loc='center left',fontsize='x-small',scatterpoints=1,frameon=False)
     
-    Plotter.scatter(ax[1],xdata=mout1['b_augend'].loc[(mout1['odd_trial']==1) & (mout1['animal']=='Ruffio')],
-                    ydata=mout1['b_addend'].loc[(mout1['odd_trial']==0) & (mout1['animal']=='Ruffio')],
+    Plotter.scatter(ax[1],xdata=mout1['b_augend'].loc[(mout1['animal']=='Ruffio')],
+                    ydata=mout1['b_addend'].loc[(mout1['animal']=='Ruffio')],
                     xlabel='Augend coefficient',ylabel='Other coefficient',color=[1,0,0],label='Addend',
                     xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey R')
-    Plotter.scatter(ax[1],xdata=mout1['b_augend'].loc[(mout1['odd_trial']==0) & (mout1['animal']=='Ruffio')],
-                    ydata=mout1['b_singleton'].loc[(mout1['odd_trial']==1) & (mout1['animal']=='Ruffio')],
+    Plotter.scatter(ax[1],xdata=mout1['b_augend'].loc[(mout1['animal']=='Ruffio')],
+                    ydata=mout1['b_singleton'].loc[(mout1['animal']=='Ruffio')],
                     xlabel='Augend coefficient',ylabel='Other coefficient',color=[0,0,1],label='Singleton')
     ax[1].legend(loc='center right',fontsize='x-small',scatterpoints=1,frameon=False)
     #plt.tight_layout();
@@ -299,29 +300,31 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
     #plot uni dots vs. quad dots coefficients in quad dots experiment
     h,ax = plt.subplots(2,3,figsize=[18,8])
-    Plotter.scatter(ax[0,0],xdata=mout2['b_aug_num_green'].loc[(mout2['odd_trial']==1) & (mout2['animal']=='Xavier')],
-                    ydata=mout2['b_aug_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Xavier')],
+    Plotter.scatter(ax[0,0],xdata=mout2['b_aug_num_green'].loc[(mout2['animal']=='Xavier')],
+                    ydata=mout2['b_aug_num_quad'].loc[(mout2['animal']=='Xavier')],
                     ylabel='Quad-dots coef.',
                     xlim=[-7,7],ylim=[-7,7],identity='full',title='Monkey X,Augend')
-    Plotter.scatter(ax[0,1],xdata=mout2['b_add_num_green'].loc[(mout2['odd_trial']==1) & (mout2['animal']=='Xavier')],
-                    ydata=mout2['b_add_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Xavier')],
+    Plotter.scatter(ax[0,1],xdata=mout2['b_add_num_green'].loc[(mout2['animal']=='Xavier')],
+                    ydata=mout2['b_add_num_quad'].loc[(mout2['animal']=='Xavier')],
                     xlim=[-7,7],ylim=[-7,7],identity='full',title='Monkey X,Addend')
-    Plotter.scatter(ax[0,2],xdata=mout2['b_sing_num_green'].loc[(mout2['odd_trial']==1) & (mout2['animal']=='Xavier')],
-                    ydata=mout2['b_sing_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Xavier')],
+    Plotter.scatter(ax[0,2],xdata=mout2['b_sing_num_green'].loc[(mout2['animal']=='Xavier')],
+                    ydata=mout2['b_sing_num_quad'].loc[(mout2['animal']=='Xavier')],
                     xlim=[-7,7],ylim=[-7,7],identity='full',title='Monkey X, Singleton')
+
     
-    Plotter.scatter(ax[1,0],xdata=mout2['b_aug_num_green'].loc[(mout2['odd_trial']==1) & (mout2['animal']=='Ruffio')],
-                    ydata=mout2['b_aug_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Ruffio')],
+    Plotter.scatter(ax[1,0],xdata=mout2['b_aug_num_green'].loc[(mout2['animal']=='Ruffio')],
+                    ydata=mout2['b_aug_num_quad'].loc[(mout2['animal']=='Ruffio')],
                     xlabel='Uni-dots coef.',ylabel='Quad-dots coef.',
                     xlim=[-6.5,6.5],ylim=[-6.5,7],identity='full',title='Monkey R,Augend')
-    Plotter.scatter(ax[1,1],xdata=mout2['b_add_num_green'].loc[(mout2['odd_trial']==1) & (mout2['animal']=='Ruffio')],
-                    ydata=mout2['b_add_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Ruffio')],
+    Plotter.scatter(ax[1,1],xdata=mout2['b_add_num_green'].loc[(mout2['animal']=='Ruffio')],
+                    ydata=mout2['b_add_num_quad'].loc[(mout2['animal']=='Ruffio')],
                     xlabel='Uni-dots coef.',
                     xlim=[-7,7],ylim=[-6.5,7],identity='full',title='Monkey R,Addend')
-    Plotter.scatter(ax[1,2],xdata=mout2['b_sing_num_green'].loc[(mout2['odd_trial']==1) & (mout2['animal']=='Ruffio')],
-                    ydata=mout2['b_sing_num_quad'].loc[(mout2['odd_trial']==0) & (mout2['animal']=='Ruffio')],
+    Plotter.scatter(ax[1,2],xdata=mout2['b_sing_num_green'].loc[(mout2['animal']=='Ruffio')],
+                    ydata=mout2['b_sing_num_quad'].loc[(mout2['animal']=='Ruffio')],
                     xlabel='Uni-dots coef.',
                     xlim=[-7,6.5],ylim=[-7,7],identity='full',title='Monkey R, Singleton')
+
     #plt.tight_layout()
     pdf.savefig()
     
@@ -417,22 +420,22 @@ with PdfPages('D:\\Bart\\Dropbox\\pdf_test.pdf') as pdf:
     
     #Plot coefficients in Subtraction experiment
     h,ax = plt.subplots(2,2,figsize=[6*2,4*2])
-    Plotter.scatter(ax[0,0],xdata=mout3['b_augend'].loc[(mout3['odd_trial']==1) & (mout3['animal']=='Xavier')],
-                    ydata=mout3['b_addend'].loc[(mout3['odd_trial']==0) & (mout3['animal']=='Xavier')],
-                    xlabel='Minuend coefficient',ylabel='Other coefficient',label='Subtrahend',
+    Plotter.scatter(ax[0,0],xdata=mout3['b_augend'].loc[(mout3['animal']=='Xavier')],
+                    ydata=mout3['b_addend'].loc[(mout3['animal']=='Xavier')],
+                    xlabel='Minuend coefficient',ylabel='Subtrahend coefficient',label='Subtrahend',
                     xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey X')
-    Plotter.scatter(ax[0,1],xdata=mout3['b_augend'].loc[(mout3['odd_trial']==0) & (mout3['animal']=='Xavier')],
-                    ydata=mout3['b_singleton'].loc[(mout3['odd_trial']==1) & (mout3['animal']=='Xavier')],
-                    xlabel='Minuend coefficient',ylabel='Other coefficient',label='Singleton',
+    Plotter.scatter(ax[0,1],xdata=mout3['b_augend'].loc[(mout3['animal']=='Xavier')],
+                    ydata=mout3['b_singleton'].loc[(mout3['animal']=='Xavier')],
+                    xlabel='Minuend coefficient',ylabel='Singleton coefficient',label='Singleton',
                     xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey X')
     
-    Plotter.scatter(ax[1,0],xdata=mout3['b_augend'].loc[(mout3['odd_trial']==1) & (mout3['animal']=='Ruffio')],
-                    ydata=mout3['b_addend'].loc[(mout3['odd_trial']==0) & (mout3['animal']=='Ruffio')],
-                    xlabel='Minuend coefficient',ylabel='Other coefficient',label='Subtrahend',
+    Plotter.scatter(ax[1,0],xdata=mout3['b_augend'].loc[(mout3['animal']=='Ruffio')],
+                    ydata=mout3['b_addend'].loc[(mout3['animal']=='Ruffio')],
+                    xlabel='Minuend coefficient',ylabel='Subtrahend coefficient',label='Subtrahend',
                     xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey R')
-    Plotter.scatter(ax[1,1],xdata=mout3['b_augend'].loc[(mout3['odd_trial']==0) & (mout3['animal']=='Ruffio')],
-                    ydata=mout3['b_singleton'].loc[(mout3['odd_trial']==1) & (mout3['animal']=='Ruffio')],
-                    xlabel='Minuend coefficient',ylabel='Other coefficient',label='Singleton',
+    Plotter.scatter(ax[1,1],xdata=mout3['b_augend'].loc[(mout3['animal']=='Ruffio')],
+                    ydata=mout3['b_singleton'].loc[(mout3['animal']=='Ruffio')],
+                    xlabel='Minuend coefficient',ylabel='Singleton coefficient',label='Singleton',
                     xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey X')
     #plt.tight_layout();
     pdf.savefig()

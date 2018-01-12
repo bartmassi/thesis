@@ -421,3 +421,18 @@ query = '''
 '''
 
 data = Helper.getData(cur,query);
+
+
+
+#Make SQl query
+query = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO' and animal='Ruffio'
+        ORDER BY animal,session
+'''
+
+
+#Execute query, then convert to pandas table
+data = Helper.getData(cur,query)

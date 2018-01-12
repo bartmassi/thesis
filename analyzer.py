@@ -72,12 +72,14 @@ def get_models():
     
     
     return models
+
     
 #This runs a logistic regression on data.
 #df: the data frame containing the variables that are parts of the model
 #model: the model. Uses patsy (i.e., R) model specification.
-#groupby
-def logistic_regression(df,model,groupby='None',compute_cpd=True):
+#groupby: List of field names. fits model separately to each unique combination 
+#of groupby variable values.
+def logistic_regression(df,model,groupby='None',compute_cpd=True,standardize=False):
     
     #should we use group by?
     usegroupby = groupby != 'None' and groupby != 'none'
@@ -101,6 +103,10 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True):
             
         #converts data into regressand (y) and regression matrix (X) based on model. 
         y, X = patsy.dmatrices(model, thisdf, return_type='dataframe')
+        if(standardize):
+            for c in X.columns:
+                if(c!='Intercept'):
+                    X[c] = scipy.stats.mstats.zscore(X[c])
         #create and fit model object
         mdl = sreg.GLM(endog=y,exog=X,family=sm.genmod.families.family.Binomial())
         thismout = mdl.fit()
