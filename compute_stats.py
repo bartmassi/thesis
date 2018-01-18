@@ -390,8 +390,118 @@ tests.append({'description':description14+'(Ruffio)','p':p14_r,'stat':None,'mean
 
 
 #==============================================EXP4
-#one-sample t-test on sum-singleton coef in logistic regression
-#t-test on set 1 vs. set 2 accuracy for both animals
-#one sample t-test on set 2 accuracy vs. chance
-#binomial test on set 2 accuracy on first day
-#one sample t-test on subtrahend and singleton coefficients
+###############
+description15 = 'one-sample t-test on sum-singleton coef in logistic regression'
+query15 = '''
+        SELECT animal,session,augend as minuend,addend as subtrahend,singleton,chose_sum,
+        trialset,trial,augend+addend-singleton as diff
+        FROM behavioralstudy
+        WHERE experiment='Subtraction'
+        ORDER BY animal,session,trial
+'''
+
+data15 = Helper.getData(cur,query15)
+
+model15 = 'chose_sum ~ diff'
+mout15 = Analyzer.logistic_regression(data15,model15,groupby=['animal','session'],standardize=True)
+
+n15_x = len(mout15['animal'].loc[mout15['animal']=='Xavier'])
+n15_r = len(mout15['animal'].loc[mout15['animal']=='Ruffio'])
+t15_x = scipy.stats.ttest_1samp(mout15['b_diff'].loc[mout15['animal']=='Xavier'],0)
+t15_r = scipy.stats.ttest_1samp(mout15['b_diff'].loc[mout15['animal']=='Ruffio'],0)
+
+tests.append({'description':description15+'(Xavier)','p':t15_x.pvalue,'stat':t15_x.statistic,
+              'mean':np.mean(mout15['b_diff'].loc[mout15['animal']=='Xavier']),'n':n15_x,'df':n15_x-1})
+tests.append({'description':description15+'(Ruffio)','p':t15_r.pvalue,'stat':t15_r.statistic,
+              'mean':np.mean(mout15['b_diff'].loc[mout15['animal']=='Ruffio']),'n':n15_r,'df':n15_r-1})
+
+###############
+description16 = 't-test on set 1 vs. set 2 accuracy for both animals'
+query16 = '''
+        SELECT animal,session,
+        AVG(CASE WHEN trialset=1 THEN (chose_sum = ((augend+addend)>singleton)) ELSE NULL END) as set1perf,
+        AVG(CASE WHEN trialset=2 THEN (chose_sum = ((augend+addend)>singleton)) ELSE NULL END) as set2perf
+        FROM behavioralstudy
+        WHERE experiment='Subtraction'
+        GROUP BY animal,session
+        HAVING set2perf IS NOT NULL
+        ORDER BY animal,session
+'''
+data16 = Helper.getData(cur,query16)
+t16_x = scipy.stats.ttest_rel(data16['set1perf'].loc[data16['animal']=='Xavier'],
+                             data16['set2perf'].loc[data16['animal']=='Xavier'])
+n16_x = len(data16['set2perf'].loc[data16['animal']=='Xavier'])
+t16_r = scipy.stats.ttest_rel(data16['set1perf'].loc[data16['animal']=='Ruffio'],
+                             data16['set2perf'].loc[data16['animal']=='Ruffio'])
+n16_r = len(data16['set2perf'].loc[data16['animal']=='Ruffio'])
+tests.append({'description':description16+'(Xavier)','p':t16_x.pvalue,'stat':t16_x.statistic,
+              'mean':(np.mean(data16['set1perf'].loc[data16['animal']=='Xavier']),np.mean(data16['set2perf'].loc[data16['animal']=='Xavier'])),'n':n16_x,'df':n16_x-1})
+tests.append({'description':description16+'(Ruffio)','p':t16_r.pvalue,'stat':t16_r.statistic,
+              'mean':(np.mean(data16['set1perf'].loc[data16['animal']=='Ruffio']),np.mean(data16['set2perf'].loc[data16['animal']=='Ruffio'])),'n':n16_r,'df':n16_r-1})
+
+
+###############
+description17 = 'one sample t-test on set 2 accuracy vs. chance'
+data17 = data16
+t17_x = scipy.stats.ttest_1samp(data17['set2perf'].loc[data17['animal']=='Xavier'],.5)
+n17_x = n16_x
+t17_r = scipy.stats.ttest_1samp(data17['set2perf'].loc[data17['animal']=='Ruffio'],.5)
+n17_r = n16_r
+tests.append({'description':description17+'(Xavier)','p':t17_x.pvalue,'stat':t17_x.statistic,
+              'mean':np.mean(data17['set2perf'].loc[data17['animal']=='Xavier']),'n':n17_x,'df':n17_x-1})
+tests.append({'description':description17+'(Ruffio)','p':t17_r.pvalue,'stat':t17_r.statistic,
+              'mean':np.mean(data17['set2perf'].loc[data17['animal']=='Ruffio']),'n':n17_r,'df':n17_r-1})
+
+###############
+description18 = 'binomial test on set 2 accuracy on first day'
+query18 = '''
+        SELECT animal,session,(chose_sum = ((augend+addend)>singleton)) as correct
+        FROM behavioralstudy
+        WHERE trialset=2 AND experiment='Subtraction' AND
+        ((animal='Xavier' AND session=(SELECT session FROM behavioralstudy WHERE trialset=2 AND experiment='Subtraction' AND animal='Xavier' ORDER BY session LIMIT 1))
+        OR (animal='Ruffio' AND session=(SELECT session FROM behavioralstudy WHERE trialset=2 AND experiment='Subtraction' AND animal='Ruffio' ORDER BY session LIMIT 1)))
+        ORDER BY animal,session
+        '''
+data18 = Helper.getData(cur,query18)
+
+n18_x = len(data18['correct'].loc[data18['animal']=='Xavier'])
+n18_r = len(data18['correct'].loc[data18['animal']=='Ruffio'])
+mux = np.sum(data18['correct'].loc[data18['animal']=='Xavier'])
+mur = np.sum(data18['correct'].loc[data18['animal']=='Ruffio'])
+t18_x = scipy.stats.binom_test(mux,n18_x,.5)
+t18_r = scipy.stats.binom_test(mur,n18_r,.5)
+tests.append({'description':description18+'(Xavier)','p':t18_x,'stat':None,'mean':mux/n18_x,
+              'n':n18_x,'df':None})
+tests.append({'description':description18+'(Ruffio)','p':t18_r,'stat':None,'mean':mur/n18_r,
+              'n':n18_r,'df':None})
+
+
+###############
+description19 = 'paired t-test on subtrahend and singleton coefficients'
+data19 = data15
+
+model19 = 'chose_sum ~ minuend+subtrahend+singleton'
+mout19 = Analyzer.logistic_regression(data19,model19,groupby=['animal','session'],standardize=True)
+
+t19_x = scipy.stats.ttest_rel(mout19['b_subtrahend'].loc[mout19['animal']=='Xavier'],
+                              mout19['b_singleton'].loc[mout19['animal']=='Xavier'])
+t19_r = scipy.stats.ttest_rel(mout19['b_subtrahend'].loc[mout19['animal']=='Ruffio'],
+                              mout19['b_singleton'].loc[mout19['animal']=='Ruffio'])
+n19_x = len(mout19['b_subtrahend'].loc[mout19['animal']=='Xavier'])
+n19_r = len(mout19['b_subtrahend'].loc[mout19['animal']=='Ruffio'])
+
+tests.append({'description':description19+'(Xavier)','p':t19_x.pvalue,'stat':t19_x.statistic,
+              'mean':(np.mean(mout19['b_subtrahend'].loc[data19['animal']=='Xavier']),
+              np.mean(mout19['b_singleton'].loc[data19['animal']=='Xavier'])),'n':n19_x,'df':n19_x-1})
+tests.append({'description':description19+'(Ruffio)','p':t19_r.pvalue,'stat':t19_r.statistic,
+              'mean':(np.mean(mout19['b_subtrahend'].loc[data19['animal']=='Ruffio']),
+              np.mean(mout19['b_singleton'].loc[data19['animal']=='Ruffio'])),'n':n19_r,'df':n19_r-1})
+
+
+
+#%%
+#Print it all out
+
+testdict = pd.DataFrame.from_dict(tests)
+with open('D:\\Bart\\dropbox\\thesis_stats.csv','w') as fout:
+    testdict.to_csv(fout)

@@ -65,10 +65,17 @@ def get_models():
     #4 parameters
     linear = lambda w,data: logistic(w[0] + w[1]*data['augend'] + w[2]*data['addend'] + w[3]*data['singleton'])
     
+    #Average of the difference and the prior's predictions, weighted by the ratio of sum and singleton.
+    #2 parameters
+    ratiofun = lambda data: data[['sum','singleton']].min(axis=1)/data[['sum','singleton']].max(axis=1)
+    weighted_diff_singprior = lambda w,data: logistic(w[0] + 
+                (1-ratiofun(data)*w[1])*(data['sum']-data['singleton']) + ratiofun(data)*w[1]*data['sing_prior'])
+    
     models = {'cost':cost,'dm_onescale':dm_onescale,'dm_full':dm_full,
     'dm_prior_weighting':dm_prior_weighting,'linear':linear,
     'dm_prior_optimal':dm_prior_optimal,
-    'weightfun':weightfun}
+    'weightfun':weightfun,
+    'weighted_diff_singprior':weighted_diff_singprior}
     
     
     return models
@@ -111,7 +118,9 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True,standardize=Fal
         mdl = sreg.GLM(endog=y,exog=X,family=sm.genmod.families.family.Binomial())
         thismout = mdl.fit()
         thismout.bic = thismout.deviance+np.log(X.shape[0])*len(thismout.params)
-        
+        thismout.rank = np.linalg.matrix_rank(X)
+        thismout.npar = X.shape[1]
+        thismout.fullrank = thismout.rank==thismout.npar
         #placeholder for computing coefficient of partial determination
         if(compute_cpd):
             pass
@@ -131,7 +140,9 @@ def logistic_regression(df,model,groupby='None',compute_cpd=True,standardize=Fal
     	'fittedvalues':[m.fittedvalues for m in mout],
     	'llf':[m.llf for m in mout],
     	'mu':[m.mu for m in mout],
+    'npar':[m.npar for m in mout],
     	'null_deviance':[m.null_deviance for m in mout],
+    'rank':[m.rank for m in mout],
     	'resid_deviance':[m.resid_deviance for m in mout],
     	'scale':[m.scale for m in mout]}
 

@@ -436,3 +436,322 @@ query = '''
 
 #Execute query, then convert to pandas table
 data = Helper.getData(cur,query)
+
+
+#%%
+#Make addend-augend grid plot
+#Plots the animals' performance as a function of singleton for each aug,add pair, and prior in lines.
+
+
+flatlo = Helper.getFlatLOTrialset()
+query = '''
+        SELECT augend,addend,singleton,chose_sum,augend+addend-singleton as diff,
+        animal,session,trial,(augend+addend-singleton)>0 as sum_correct,
+        1.0*(augend+addend)/singleton as ratio
+        FROM behavioralstudy
+        WHERE experiment='FlatLO' AND animal='Xavier'
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query)
+
+uaug = np.unique(data['augend'])
+uadd = np.unique(data['addend'])
+using = np.unique(data['singleton'])
+usingadddiff = np.unique(data['singleton']-data['addend']);
+usingaddrat = np.unique(data['singleton']/data['addend']);
+naug = len(uaug)
+nadd = len(uadd)
+nsing = len(using)
+nsingadddiff = len(usingadddiff)
+nsingaddrat = len(usingaddrat)
+
+#iterate through augend and addend, find unique singleton and performance at each triplet.
+usings = np.empty([naug,nadd,4])
+perf = np.empty([naug,nadd,4,2])
+for i in range(0,naug):
+    for j in range(0,nadd):
+        if(i>0 or j>0):
+            usings[i,j,:] = np.unique(data['singleton'].loc[(data['augend']==uaug[i]) & (data['addend']==uadd[j])])
+            for k in range(0,len(usings[i,j,:])):
+                cond = (data['singleton']==usings[i,j,k]) & (data['augend']==uaug[i]) & (data['addend']==uadd[j])
+                perf[i,j,k,0] = np.mean(data['chose_sum'].loc[cond])
+                perf[i,j,k,1] = scipy.stats.sem(data['chose_sum'].loc[cond])
+        else:
+            usings[i,j,1:3] = np.unique(data['singleton'].loc[(data['augend']==uaug[i]) & (data['addend']==uadd[j])])
+            usings[i,j,[0,3]] = np.nan
+            perf[i,j,1,:] = np.nan
+            perf[i,j,2,:] = np.nan
+            for k in range(1,3):
+                cond = (data['singleton']==usings[i,j,k]) & (data['augend']==uaug[i]) & (data['addend']==uadd[j])
+                perf[i,j,k,0] = np.mean(data['chose_sum'].loc[cond])
+                perf[i,j,k,1] = scipy.stats.sem(data['chose_sum'].loc[cond])
+                
+#make panel plots
+nrow = nadd
+ncol = naug
+h,ax = plt.subplots(nrow,ncol,figsize=[ncol*6,nrow*6])
+yt = [0,.25,.5,.75,1]
+for i in range(0,naug):
+    for j in range(0,nadd):
+        if(i>0 or j>0):
+            #plot priors
+            #addsing prior
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,:],
+                ydata=flatlo['add_sing_prior'][j,usings[i,j,:].astype(int)-1],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,:].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='add,sing prior',color=[1,0,0])
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,:],
+                ydata=flatlo['pcs'][usings[i,j,:].astype(int)-1],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,:].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='sing prior',color=[0,0,1])
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,:],
+                ydata=[flatlo['singadddiff_prior'][usingadddiff.tolist().index(x)]
+                for x in usings[i,j,:].astype(int)-uadd[j]],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,:].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='sing minus add prior',color=[0,1,0])
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,:],
+                ydata=[flatlo['singaddrat_prior'][usingaddrat.tolist().index(x)]
+                for x in usings[i,j,:]/uadd[j]],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,:].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='sing/add prior',color=[0,1,1])
+            #plot data
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,:],
+                ydata=perf[i,j,:,0],ls='none',sem=perf[i,j,:,1],yticks=[0,.25,.5,.75,1],ylim=[0,1])
+            Plotter.scatter(ax[j,i],xdata=usings[i,j,:],
+                ydata=perf[i,j,:,0],ylim=[0,1],label='Animal',identity='off')
+        else:
+            #plot priors
+            #sing prior
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,1:3],
+                ydata=flatlo['add_sing_prior'][j,usings[i,j,1:3].astype(int)-1],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,1:3].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='add,sing prior',xlim=[0,4],color=[1,0,0])
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,1:3],
+                ydata=flatlo['pcs'][usings[i,j,1:3].astype(int)-1],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,1:3].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='sing prior',xlim=[0,4],color=[0,0,1])
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,1:3],
+                ydata=[flatlo['singadddiff_prior'][usingadddiff.tolist().index(x)]
+                for x in usings[i,j,1:3].astype(int)-uadd[j]],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,1:3].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='sing minus add prior',xlim=[0,4],color=[0,1,0])
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,1:3],
+                ydata=[flatlo['singaddrat_prior'][usingaddrat.tolist().index(x)]
+                for x in usings[i,j,1:3]/uadd[j]],
+                title='Aug='+str(uaug[i])+',Add='+str(uadd[j]),
+                xlabel='Singleton',xticks=usings[i,j,1:3].tolist(),
+                ylabel='P(choose sum)',yticks=yt,ylim=[0,1],label='sing/add prior',xlim=[0,4],color=[0,1,1])
+            ax[j,i].legend(loc='center left',fontsize='small',frameon=False)
+            #plot data
+            Plotter.lineplot(ax[j,i],xdata=usings[i,j,:],
+                ydata=perf[i,j,:,0],sem=perf[i,j,:,1],ls='none',yticks=[0,.25,.5,.75,1],ylim=[0,1])
+            Plotter.scatter(ax[j,i],xdata=usings[i,j,:],
+                ydata=perf[i,j,:,0],ylim=[0,1],label='Animal',identity='off')
+            
+data['addaug'] = data['addend']*10 + data['augend']
+data['const'] = data['augend']-data['augend']
+data['sing_prior']
+data['sing_prior'] = sing_prior
+Plotter.panelplots(data=data,plotvar='chose_sum',groupby=['addaug','const','singleton'],
+               axes=None,scattervar=[],xlim=[],ylim=[0,1],xlabel='Singleton',ylabel='P(choose sum)',
+               xticks=[],yticks=[],horiz=None,maxcol=6,legend='off')
+            
+#for every combo of aug add sing, compute ratio and look at deviation from add-sing prior
+#also look at singleton prior
+ratio_perf_addsing = []
+ratio_perf_sing = []
+for i in range(0,naug):
+    for j in range(0,nadd):
+        for k in range(0,nsing):
+            cond = (data['augend']==uaug[i]) & (data['addend']==uadd[j]) & (data['singleton']==using[k])
+            ratio = (uaug[i]+uadd[j])/using[k]
+            perfdiff_addsing = np.mean(data['chose_sum'].loc[cond])-flatlo['add_sing_prior'][j,k]
+            perfdiff_sing = np.mean(data['chose_sum'].loc[cond])-flatlo['pcs'][k]
+            ratio_perf_addsing.append([ratio,perfdiff_addsing])
+            ratio_perf_sing.append([ratio,perfdiff_sing])
+
+
+#reorganize data
+ratperf_addsing = np.array(ratio_perf_addsing)
+ratperf_addsing = ratperf_addsing[~np.isnan(ratperf_addsing).any(axis=1)]
+Xaddsing = np.vstack([np.log(ratperf_addsing[:,0]),np.ones(len(ratperf_addsing[:,0]))]).T
+m_addsing,c_addsing = np.linalg.lstsq(Xaddsing,ratperf_addsing[:,1])[0]
+                                
+#get data for just singleton
+ratperf_sing = np.array(ratio_perf_sing)
+ratperf_sing = ratperf_sing[~np.isnan(ratperf_sing).any(axis=1)]
+X = np.vstack([np.log(ratperf_sing[:,0]),np.ones(len(ratperf_sing[:,0]))]).T
+m_sing,c_sing = np.linalg.lstsq(X,ratperf_sing[:,1])[0]
+
+h,ax = plt.subplots(1,2,figsize=[2*6,6])
+Plotter.scatter(ax[0],xdata=np.log(ratperf_addsing[:,0]),ydata=ratperf_addsing[:,1],title='Actual vs. Addend,Singleton Prior choice',
+                xlabel='log(sum/sing)',ylabel='p(choose sum) - p(sum>sing|addend,sing)',
+                ylim=[-.75,.75],xlim=[-1.25,1.25],identity='cross')
+Plotter.lineplot(ax[0],xdata=[-1.25,1.25],ydata=m_addsing*np.array([-1.25,1.25]) + c_addsing)
+
+Plotter.scatter(ax[1],xdata=np.log(ratperf_sing[:,0]),ydata=ratperf_sing[:,1],title='Actual vs. Singleton Prior choice',
+                xlabel='log(sum/sing)',ylabel='p(choose sum) - p(sum>sing|sing)',
+                ylim=[-.75,.75],xlim=[-1.25,1.25],identity='cross')
+Plotter.lineplot(ax[1],xdata=[-1.25,1.25],ydata=m_sing*np.array([-1.25,1.25]) + c_sing)
+
+x = np.log(ratperf_sing[:,0])
+y = ratperf_sing[:,1]
+scipy.stats.pearsonr(x,y)
+
+
+#Look at deviation from prior as a function of log ratio, for unique ratios.
+uratio = np.unique(data['ratio'])
+
+addsing_prior = [flatlo['add_sing_prior'][uadd.tolist().index(x),using.tolist().index(y)]
+         for x,y in zip(data['addend'],data['singleton'])]
+sing_prior = [flatlo['pcs'][using.tolist().index(x)] for x in data['singleton']]
+data['addsing_prior'] = addsing_prior
+data['sing_prior'] = sing_prior
+
+uratio_perf_addsing = []
+uratio_perf_sing = []
+for ur in uratio:
+    cond = data['ratio']==ur
+    uratio_perf_addsing.append(np.mean(data['chose_sum'].loc[cond] - data['addsing_prior'].loc[cond]))
+    uratio_perf_sing.append(np.mean(data['chose_sum'].loc[cond] - data['sing_prior'].loc[cond]))
+
+h,ax = plt.subplots(1,2,figsize=[2*6,6])
+Plotter.scatter(ax[0],xdata=np.log(uratio),ydata=uratio_perf_addsing,title='Actual vs. Addend,Singleton Prior choice',
+                xlabel='log(sum/sing)',ylabel='p(choose sum) - p(sum>sing|addend,sing)',
+                ylim=[-.75,.75],xlim=[-1.25,1.25],identity='cross')
+Plotter.scatter(ax[1],xdata=np.log(uratio),ydata=uratio_perf_sing,title='Actual vs. Singleton Prior choice',
+                xlabel='log(sum/sing)',ylabel='p(choose sum) - p(sum>sing|sing)',
+                ylim=[-.75,.75],xlim=[-1.25,1.25],identity='cross')
+
+
+scipy.stats.pearsonr(np.log(uratio),uratio_perf_sing)
+
+#%%
+#Make addend-augend grid plot using panelplots, and visualize prior.
+
+
+flatlo = Helper.getFlatLOTrialset()
+query = '''
+        SELECT augend,addend,singleton,chose_sum,augend+addend-singleton as diff,
+        animal,session,trial,(augend+addend-singleton)>0 as sum_correct,
+        1.0*(augend+addend)/singleton as ratio
+        FROM behavioralstudy
+        WHERE experiment='FlatLO' AND animal='Xavier'
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query) 
+
+#setup panelplots to make aug/add grid
+data['addaug'] = data['addend']*10 + data['augend']
+data['const'] = data['augend']-data['augend']
+addsing_prior = [flatlo['add_sing_prior'][flatlo['uadd'].tolist().index(x),flatlo['using'].tolist().index(y)]
+         for x,y in zip(data['addend'],data['singleton'])]
+sing_prior = [flatlo['pcs'][flatlo['using'].tolist().index(x)] for x in data['singleton']]
+data['sing_prior'] = sing_prior
+data['addsing_prior'] = addsing_prior
+Plotter.panelplots(data=data,plotvar='addsing_prior',scattervar='chose_sum',
+    groupby=['addaug','const','singleton'],axes=None,
+    xlim=[],ylim=[0,1],xlabel='Singleton',ylabel='P(choose sum)',
+    xticks=[],yticks=[],horiz=None,maxcol=6,legend='off')
+
+
+#%%
+#Look at best fit of logistic regression model to aug-add grid plot.
+flatlo = Helper.getFlatLOTrialset()
+query = '''
+        SELECT augend,addend,singleton,chose_sum,augend+addend-singleton as diff,
+        animal,session,trial,(augend+addend-singleton)>0 as sum_correct,
+        1.0*(augend+addend)/singleton as ratio,
+        aug_num_green,add_num_green,sing_num_green,
+        aug_num_quad,add_num_quad,sing_num_quad
+        FROM behavioralstudy
+        WHERE experiment='FlatLO' AND animal='Ruffio'
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query) 
+
+#setup panelplots to make aug/add grid
+data['addaug'] = data['addend']*10 + data['augend']
+data['const'] = data['augend']-data['augend']
+
+model = 'chose_sum ~ aug_num_green + add_num_green + sing_num_green + aug_num_quad '
+lr = Analyzer.logistic_regression(data,model=model)
+data['pred'] = lr.fittedvalues[0]
+
+with PdfPages('D:\\Bart\\Dropbox\\Ruffio_regression_perf.pdf') as pdf:
+    Plotter.panelplots(data=data,plotvar='pred',scattervar='chose_sum',
+        groupby=['addaug','const','singleton'],axes=None,
+        xlim=[],ylim=[0,1],xlabel='Singleton',ylabel='P(choose sum)',
+        xticks=[],yticks=[],horiz=None,maxcol=6,legend='off')
+    pdf.savefig()
+
+
+#%%
+#analyze effects of previous trial
+#drops trial 1 of each session
+
+#query involves a LEFT SELF JOIN
+query = '''
+    SELECT bs1.animal,bs1.session,bs1.trial,bs1.aug_num_green,bs1.add_num_green,
+    bs1.sing_num_green,bs1.aug_num_quad,bs1.chose_sum,
+    bs1.augend,bs1.addend,bs1.singleton,
+    bs2.chose_sum as chose_sum_m1,
+    ((bs2.augend+bs2.addend)>bs2.singleton) as sum_correct_m1,
+    bs2.chose_sum==((bs2.augend+bs2.addend)>bs2.singleton) as chose_correct_m1
+    FROM behavioralstudy as bs1
+    LEFT JOIN behavioralstudy as bs2
+    ON (bs1.session = bs2.session) AND (bs1.animal = bs2.animal) AND (bs1.trial = (bs2.trial+1))
+    AND (bs1.experiment = bs2.experiment)
+    WHERE bs1.animal='Xavier' AND bs1.experiment='FlatLO' AND (chose_sum_m1 IS NOT NULL)
+    ORDER BY bs1.animal,bs1.session
+'''
+
+data = Helper.getData(cur,query)
+
+data['addaug'] = data['addend']*10 + data['augend']
+data['sumcorrectm1_chosesumm1'] = data['sum_correct_m1']*10 + data['chose_sum_m1']
+
+with PdfPages('D:\\Bart\\Dropbox\\Xavier_prevtrial_perf.pdf') as pdf:
+    Plotter.panelplots(data=data,plotvar='chose_sum',
+        groupby=['addaug','sumcorrectm1_chosesumm1','singleton'],axes=None,
+        xlim=[],ylim=[0,1],xlabel='Singleton',ylabel='P(choose sum)',
+        xticks=[],yticks=[],horiz=None,maxcol=6,legend='on')
+    pdf.savefig()
+
+
+#%%
+#Backwards elimination on flat log-odds trialset for model w/ terms for previous trial.
+
+query = '''
+    SELECT bs1.animal,bs1.session,bs1.trial,bs1.aug_num_green,bs1.add_num_green,
+    bs1.sing_num_green,bs1.aug_num_quad,bs1.chose_sum,
+    bs1.augend,bs1.addend,bs1.singleton,
+    bs2.chose_sum as chose_sum_m1,
+    ((bs2.augend+bs2.addend)>bs2.singleton) as sum_correct_m1,
+    bs2.chose_sum==((bs2.augend+bs2.addend)>bs2.singleton) as chose_correct_m1
+    FROM behavioralstudy as bs1
+    LEFT JOIN behavioralstudy as bs2
+    ON (bs1.session = bs2.session) AND (bs1.animal = bs2.animal) AND (bs1.trial = (bs2.trial+1))
+    AND (bs1.experiment = bs2.experiment)
+    WHERE bs1.animal='Ruffio' AND bs1.experiment='FlatLO' AND (chose_sum_m1 IS NOT NULL)
+    ORDER BY bs1.animal,bs1.session
+'''
+
+data = Helper.getData(cur,query)
+
+#recode binary variables as 1/-1 instead of 0/1
+data['chose_sum_m1'].loc[data['chose_sum_m1']==0] = -1
+data['sum_correct_m1'].loc[data['sum_correct_m1']==0] = -1
+model = 'chose_sum ~ aug_num_green + aug_num_quad + add_num_green + sing_num_green + chose_sum_m1*sum_correct_m1'
+lr_be = Analyzer.logistic_backwardselimination_sessionwise(df=data,model=model,
+                groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)

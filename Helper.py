@@ -40,6 +40,13 @@ def getFlatLOTrialset():
     #and marginal frequency of each singleton value
     tset = np.array(trials);#trialset in augend,addend,singleton format.
     using = np.unique(tset[:,2])
+    nsing = len(using)
+    uadd = np.unique(tset[:,1])
+    nadd = len(uadd)
+    usingadddiff = np.unique(tset[:,2]-tset[:,1])
+    nsingadddiff = len(usingadddiff)
+    usingaddrat = np.unique(tset[:,2]/tset[:,1])
+    nsingaddrat = len(usingaddrat)
     uprod = np.unique(np.prod(tset,axis=1))
     pcorrect_sing = []
     avgratio_sing = []
@@ -74,10 +81,30 @@ def getFlatLOTrialset():
     pcs= np.array(pcorrect_sing);
     avgratio = np.array(avgratio_sing);
     singdist = np.array(singdist);
-    
 
-    return {'trialset':tset,'pcs':pcs,'using':using,'avgratio':avgratio,'singdist':singdist,
-            'uprod':uprod,'pcp':np.array(pcorrect_prod),'avgratio_prod':np.array(avgratio_prod),'proddist':np.array(proddist)}
+    #get p(correct) for each combination of singleton and addend
+    sing_addend_prior = np.empty([nadd,nsing])
+    for i in range(0,nadd):
+        for j in range(0,nsing):
+            thistrialtype = (tset[:,1]==uadd[i]) & (tset[:,2] == using[j])
+            sing_addend_prior[i,j] = np.mean((tset[thistrialtype,0]+tset[thistrialtype,1]) > tset[thistrialtype,2])
+    
+    #get p(corret) for all singleton-addend
+    singadddiff_prior = np.empty([nsingadddiff])
+    for i in range(0,nsingadddiff):
+        thistrialtype = (tset[:,2]-tset[:,1])==usingadddiff[i]
+        singadddiff_prior[i] = np.mean((tset[thistrialtype,0]+tset[thistrialtype,1]) > tset[thistrialtype,2])
+    
+    singaddrat_prior = np.empty([nsingaddrat])
+    for i in range(0,nsingaddrat):
+        thistrialtype = (tset[:,2]/tset[:,1])==usingaddrat[i]
+        singaddrat_prior[i] = np.mean((tset[thistrialtype,0]+tset[thistrialtype,1]) > tset[thistrialtype,2])
+
+    return {'trialset':tset,'pcs':pcs,'using':using,'uadd':uadd,'avgratio':avgratio,'singdist':singdist,
+            'uprod':uprod,'pcp':np.array(pcorrect_prod),'avgratio_prod':np.array(avgratio_prod),
+            'proddist':np.array(proddist),'add_sing_prior':sing_addend_prior,
+            'singadddiff_prior':singadddiff_prior,'usingadddiff':usingadddiff,
+            'singaddrat_prior':singaddrat_prior,'usingaddrat':usingaddrat}
 
 
 #executes SQL queries and returns results in a predictable and useful way. 

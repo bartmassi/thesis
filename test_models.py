@@ -19,11 +19,13 @@ import numpy as np
 import scipy
 from matplotlib.backends.backend_pdf import PdfPages
 
-###########Fit approximate number model from Dehaene 2007
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
 cur = conn.cursor()
+
+#%%
+###########Fit approximate number model from Dehaene 2007
 
 #Make SQl query
 query = '''
@@ -57,3 +59,30 @@ Plotter.panelplots(data,plotvar='pred',scattervar='chose_sum',groupby=['augend',
                     xticks=[-2,-1,0,1,2],yticks=[0,.25,.5,.75,1])
 plt.tight_layout()
 
+#%%
+#compare ratio to difference model
+
+flatlo = Helper.getFlatLOTrialset()
+query = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO' and animal='Ruffio'
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+
+
+data['sing_prior'] = [flatlo['pcs'][np.where(flatlo['using']==x)[0][0]] for x in data['singleton']]
+data['logratio'] = np.log(data['ratio'])
+
+lr_diff = Analyzer.logistic_regression(data,model='chose_sum ~ diff + sing_prior')
+lr_ratio = Analyzer.logistic_regression(data,model='chose_sum ~ ratio + sing_prior')
+lr_addition_prior = Analyzer.logistic_regression(data,model='chose_sum ~ augend+addend+singleton + sing_prior')
+lr_addition = Analyzer.logistic_regression(data,model='chose_sum ~ augend + addend + singleton')
+
+models = Analyzer.get_models()
+
+wds = Analyzer.fit_model(models['weighted_diff_singprior'],data,data['chose_sum'],[.1,.1])
