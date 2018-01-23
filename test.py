@@ -449,7 +449,7 @@ query = '''
         animal,session,trial,(augend+addend-singleton)>0 as sum_correct,
         1.0*(augend+addend)/singleton as ratio
         FROM behavioralstudy
-        WHERE experiment='FlatLO' AND animal='Xavier'
+        WHERE experiment='FlatLO' AND animal='Ruffio'
         ORDER BY animal,session
 '''
 
@@ -695,6 +695,39 @@ with PdfPages('D:\\Bart\\Dropbox\\Ruffio_regression_perf.pdf') as pdf:
         xticks=[],yticks=[],horiz=None,maxcol=6,legend='off')
     pdf.savefig()
 
+#%%
+#Look at best fit of logistic regression model to aug-add grid plot.
+flatlo = Helper.getFlatLOTrialset()
+query = '''
+        SELECT augend,addend,singleton,chose_sum,augend+addend-singleton as diff,
+        animal,session,trial,(augend+addend-singleton)>0 as sum_correct,
+        1.0*(augend+addend)/singleton as ratio,
+        aug_num_green,add_num_green,sing_num_green,
+        aug_num_quad,add_num_quad,sing_num_quad
+        FROM behavioralstudy
+        WHERE experiment='FlatLO' AND animal='Xavier'
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query) 
+
+#setup panelplots to make aug/add grid
+data['addaug'] = data['addend']*10 + data['augend']
+data['const'] = data['augend']-data['augend']
+
+model = 'chose_sum ~ aug_num_green * add_num_green * sing_num_green * aug_num_quad '
+lr_be = Analyzer.logistic_backwardselimination_sessionwise(df=data,model=model,
+                groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)
+data['pred'] = lr_be['final_modelout'].fittedvalues[0]
+
+
+with PdfPages('D:\\Bart\\Dropbox\\Xavier_regression_perf_be.pdf') as pdf:
+    Plotter.panelplots(data=data,plotvar='pred',scattervar='chose_sum',
+        groupby=['addaug','const','singleton'],axes=None,
+        xlim=[],ylim=[0,1],xlabel='Singleton',ylabel='P(choose sum)',
+        xticks=[],yticks=[],horiz=None,maxcol=6,legend='off')
+    pdf.savefig()
+
 
 #%%
 #analyze effects of previous trial
@@ -755,3 +788,171 @@ data['sum_correct_m1'].loc[data['sum_correct_m1']==0] = -1
 model = 'chose_sum ~ aug_num_green + aug_num_quad + add_num_green + sing_num_green + chose_sum_m1*sum_correct_m1'
 lr_be = Analyzer.logistic_backwardselimination_sessionwise(df=data,model=model,
                 groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)
+
+
+#%%
+#quad learning (uni/quad ratio) as a function of session
+query = '''
+        SELECT animal,session,chose_sum,
+        aug_num_green,add_num_green,sing_num_green,
+        aug_num_quad,add_num_quad,sing_num_quad
+        FROM behavioralstudy
+        WHERE experiment='QuadDots'
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query) 
+
+
+model = 'chose_sum ~ aug_num_green + add_num_green + sing_num_green + aug_num_quad + add_num_quad + sing_num_quad'
+lr = Analyzer.logistic_regression(df=data,model=model,groupby=['animal','session'])
+
+lr['aug_ratio'] = lr['b_aug_num_quad']/lr['b_aug_num_green']
+lr['add_ratio'] = lr['b_add_num_quad']/lr['b_add_num_green']
+lr['sing_ratio'] = lr['b_sing_num_quad']/lr['b_sing_num_green']
+
+h,ax = plt.subplots(1,2,figsize=[2*6,4])
+animal = 'Xavier'
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['aug_ratio'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+             xticks=[],yticks=[],color=[0,1,0],title=[],label='aug-ratio')
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['add_ratio'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+             xticks=[],yticks=[],color=[1,0,0],title=[],label='aug-ratio')
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['sing_ratio'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+             xticks=[],yticks=[],color=[0,0,1],title=[],label='sing-ratio')
+ax[0].legend(loc='lower right',fontsize='small',scatterpoints=1,frameon=False)
+
+animal = 'Ruffio'
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['aug_ratio'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+             xticks=[],yticks=[],color=[0,1,0],title=[],label='aug-ratio')
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['add_ratio'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+             xticks=[],yticks=[],color=[1,0,0],title=[],label='aug-ratio')
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['sing_ratio'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+             xticks=[],yticks=[],color=[0,0,1],title=[],label='sing-ratio')
+
+#Plot raw coefficients
+h,ax = plt.subplots(1,2,figsize=[6*2,4])
+animal = 'Xavier'
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_aug_num_green'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls=':',xlabel='Session',ylabel='reg. coef.',
+             xticks=[],yticks=[],color=[0,1,0],title=animal,label='augend',identity='zero')
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_add_num_green'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls=':',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[1,0,0],title=[],label='addend')
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_sing_num_green'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls=':',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,0,1],title=[],label='singleton')
+ax[0].legend(loc='lower right',fontsize='small',scatterpoints=1,frameon=False)
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_aug_num_quad'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,1,0],title=[],label=[])
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_add_num_quad'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[1,0,0],title=[],label=[])
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_sing_num_quad'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,0,1],title=[],label=[])
+
+animal = 'Ruffio'
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_aug_num_green'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls=':',xlabel='Session',ylabel='reg. coef.',
+             xticks=[],yticks=[],color=[0,1,0],title=animal,label='augend',identity='zero')
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_add_num_green'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls=':',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[1,0,0],title=[],label='addend')
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_sing_num_green'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls=':',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,0,1],title=[],label='singleton')
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_aug_num_quad'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,1,0],title=[],label=[])
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_add_num_quad'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[1,0,0],title=[],label=[])
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_sing_num_quad'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='solid',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,0,1],title=[],label=[])
+
+
+#%%
+#Subtraction learning as a function of session
+query = '''
+        SELECT animal,session,chose_sum,
+        augend,-addend as addend,singleton
+        FROM behavioralstudy
+        WHERE experiment='Subtraction'
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query) 
+
+
+#recode binary variables as 1/-1 instead of 0/1
+model = 'chose_sum ~ augend + addend + singleton'
+lr = Analyzer.logistic_regression(df=data,model=model,groupby=['animal','session'])
+
+#Plot raw coefficients
+h,ax = plt.subplots(1,2,figsize=[6*2,4])
+animal = 'Xavier'
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_augend'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='-',xlabel='Session',ylabel='reg. coef.',
+             xticks=[],yticks=[],color=[0,1,0],title=animal,label='minuend',identity='zero')
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_addend'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='-',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[1,0,0],title=[],label='subtrahend')
+Plotter.lineplot(ax[0],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_singleton'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='-',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,0,1],title=[],label='singleton')
+ax[0].legend(loc='lower right',fontsize='small',scatterpoints=1,frameon=False)
+
+animal = 'Ruffio'
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_augend'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='-',xlabel='Session',ylabel='reg. coef.',
+             xticks=[],yticks=[],color=[0,1,0],title=animal,label='minuend',identity='zero')
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_addend'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='-',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[1,0,0],title=[],label='subtrahend')
+Plotter.lineplot(ax[1],xdata=lr['session'].loc[lr['animal']==animal],
+                 ydata=lr['b_singleton'].loc[lr['animal']==animal],
+                sem=None,xlim=[],ylim=[],ls='-',xlabel='Session',ylabel=[],
+             xticks=[],yticks=[],color=[0,0,1],title=[],label='singleton')
+ax[0].legend(loc='lower right',fontsize='small',scatterpoints=1,frameon=False)
+
+
+
+query = '''
+    SELECT animal,experiment,MAX(session)
+    FROM behavioralstudy
+    GROUP BY animal,experiment
+    ORDER BY animal,experiment
+'''
+
+data = Helper.getData(cur,query)

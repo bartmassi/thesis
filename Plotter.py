@@ -32,7 +32,7 @@ def standardize_ticks(ax,plotfont,fontsize):
     
 
 def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=[],
-            color=[1,1,1],title=[],identity='on',label=[]):
+            color=[1,1,1],title=[],identity='off',label=[]):
 
     #font information
     plotfont = 'Arial'
@@ -102,12 +102,12 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
     if(identity.lower() == 'full'):
         identityline = (min([xlimits[0],ylimits[0]]),max([xlimits[1],ylimits[1]]))
         invidentityline = (max([xlimits[1],ylimits[1]]),min([xlimits[0],ylimits[0]]))
-        ax.plot(identityline,invidentityline,'--',color='black')
-    if(identity.lower() == 'cross' or identity.lower() == 'full'):
+        ax.plot(xlimits,invidentityline,'--',color='black')
+        ax.plot(xlimits,identityline,'--',color='black')
+    if(identity.lower() == 'zero' or identity.lower() == 'full' or identity.lower() == 'cross'):
         ax.plot(xlimits,[0,0],'--',color='black')
+    if(identity.lower() == 'cross' or identity.lower() == 'full'):
         ax.plot([0,0],ylimits,'--',color='black')
-    else:
-        pass
 
     #make plot a square
     ylimits = ax.get_ylim()
@@ -124,7 +124,7 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
 
 #makes a line plot with desired specifications
 def lineplot(ax,xdata,ydata,sem=None,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel=[],
-             xticks=[],yticks=[],color=[0,0,0],title=[],label=[]):
+             xticks=[],yticks=[],color=[0,0,0],title=[],label=[],identity='off'):
 
     #font information
     plotfont = 'Arial'
@@ -183,6 +183,22 @@ def lineplot(ax,xdata,ydata,sem=None,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel
         ax.set_xlabel(xlabel,fontname=plotfont,fontsize=fontsize)
     if(ylabel):
         ax.set_ylabel(ylabel,fontname=plotfont,fontsize=fontsize)
+
+    #add identity line
+    if(identity.lower() == 'on'):
+        #xlimits = ax.get_xlim()
+        #ylimits = ax.get_ylim()
+        limits = (min([xlimits[0],ylimits[0]]),max([xlimits[1],ylimits[1]]))
+        ax.plot(limits,limits,'--',color='black')
+    if(identity.lower() == 'full'):
+        identityline = (min([xlimits[0],ylimits[0]]),max([xlimits[1],ylimits[1]]))
+        invidentityline = (max([xlimits[1],ylimits[1]]),min([xlimits[0],ylimits[0]]))
+        ax.plot(xlimits,invidentityline,'--',color='black')
+        ax.plot(xlimits,identityline,'--',color='black')
+    if(identity.lower() == 'zero' or identity.lower() == 'full' or identity.lower() == 'cross'):
+        ax.plot(xlimits,[0,0],'--',color='black')
+    if(identity.lower() == 'cross' or identity.lower() == 'full'):
+        ax.plot([0,0],ylimits,'--',color='black')
 
     
     return plothandle

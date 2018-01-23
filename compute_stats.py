@@ -249,18 +249,19 @@ tests.append({'description':description9+', Singleton (Ruffio)','p':t9_sing_r.pv
               'n':n9_sing_r,'df':n9_sing_r-1})
 
 ###############
-description10='one-sample t-test on quad/uni ratio vs. 4 in logistic regression'
+description10='one-sample t-test on quad/uni ratio vs. 4 in logistic regression (excluding first 2 sessions)'
 data10 = data9
 
-augratio10_x = augquad9x/auguni9x
-augratio10_r = augquad9r/auguni9r
-addratio10_x = addquad9x/adduni9x
-addratio10_r = addquad9r/adduni9r
-singratio10_x = singquad9x/singuni9x
-singratio10_r = singquad9r/singuni9r
+#exclude first 2 sessions
+augratio10_x = augquad9x.iloc[2:-1]/auguni9x.iloc[2:-1]
+augratio10_r = augquad9r.iloc[2:-1]/auguni9r.iloc[2:-1]
+addratio10_x = addquad9x.iloc[2:-1]/adduni9x.iloc[2:-1]
+addratio10_r = addquad9r.iloc[2:-1]/adduni9r.iloc[2:-1]
+singratio10_x = singquad9x.iloc[2:-1]/singuni9x.iloc[2:-1]
+singratio10_r = singquad9r.iloc[2:-1]/singuni9r.iloc[2:-1]
 
-n10_x = n9_aug_x
-n10_r = n9_aug_r
+n10_x = len(augratio10_x)
+n10_r = len(augratio10_r)
 
 t10_aug_x = scipy.stats.ttest_1samp(augratio10_x,4)
 t10_aug_r = scipy.stats.ttest_1samp(augratio10_r,4)
@@ -269,17 +270,17 @@ t10_add_r = scipy.stats.ttest_1samp(addratio10_r,4)
 t10_sing_x = scipy.stats.ttest_1samp(singratio10_x,4)
 t10_sing_r = scipy.stats.ttest_1samp(singratio10_r,4)
 
-tests.append({'description':description10+', Augend (Xavier)','p':t10_aug_x.pvalue,'stat':t10_aug_x.statistic,'mean':np.mean(augratio10_x),
+tests.append({'description':description10+', Augend (Xavier)','p':t10_aug_x.pvalue,'stat':t10_aug_x.statistic,'mean':np.mean(augratio10_x),'sem':scipy.stats.sem(augratio10_x),
               'n':n10_x,'df':n10_x-1})
-tests.append({'description':description10+', Augend (Ruffio)','p':t10_aug_r.pvalue,'stat':t10_aug_r.statistic,'mean':np.mean(augratio10_r),
+tests.append({'description':description10+', Augend (Ruffio)','p':t10_aug_r.pvalue,'stat':t10_aug_r.statistic,'mean':np.mean(augratio10_r),'sem':scipy.stats.sem(augratio10_r),
               'n':n10_r,'df':n10_r-1})
-tests.append({'description':description10+', Addend (Xavier)','p':t10_add_x.pvalue,'stat':t10_add_x.statistic,'mean':np.mean(addratio10_x),
+tests.append({'description':description10+', Addend (Xavier)','p':t10_add_x.pvalue,'stat':t10_add_x.statistic,'mean':np.mean(addratio10_x),'sem':scipy.stats.sem(addratio10_x),
               'n':n10_x,'df':n10_x-1})
-tests.append({'description':description10+', Addend (Ruffio)','p':t10_add_r.pvalue,'stat':t10_add_r.statistic,'mean':np.mean(addratio10_r),
+tests.append({'description':description10+', Addend (Ruffio)','p':t10_add_r.pvalue,'stat':t10_add_r.statistic,'mean':np.mean(addratio10_r),'sem':scipy.stats.sem(addratio10_r),
               'n':n10_r,'df':n10_r-1})
-tests.append({'description':description10+', Singleton (Xavier)','p':t10_sing_x.pvalue,'stat':t10_sing_x.statistic,'mean':np.mean(singratio10_x),
+tests.append({'description':description10+', Singleton (Xavier)','p':t10_sing_x.pvalue,'stat':t10_sing_x.statistic,'mean':np.mean(singratio10_x),'sem':scipy.stats.sem(singratio10_x),
               'n':n10_x,'df':n10_x-1})
-tests.append({'description':description10+', Singleton (Ruffio)','p':t10_sing_r.pvalue,'stat':t10_sing_r.statistic,'mean':np.mean(singratio10_r),
+tests.append({'description':description10+', Singleton (Ruffio)','p':t10_sing_r.pvalue,'stat':t10_sing_r.statistic,'mean':np.mean(singratio10_r),'sem':scipy.stats.sem(singratio10_r),
               'n':n10_r,'df':n10_r-1})
 
 ###############
@@ -396,7 +397,7 @@ query15 = '''
         SELECT animal,session,augend as minuend,addend as subtrahend,singleton,chose_sum,
         trialset,trial,augend+addend-singleton as diff
         FROM behavioralstudy
-        WHERE experiment='Subtraction'
+        WHERE experiment='Subtraction' AND session>23
         ORDER BY animal,session,trial
 '''
 
@@ -422,7 +423,7 @@ query16 = '''
         AVG(CASE WHEN trialset=1 THEN (chose_sum = ((augend+addend)>singleton)) ELSE NULL END) as set1perf,
         AVG(CASE WHEN trialset=2 THEN (chose_sum = ((augend+addend)>singleton)) ELSE NULL END) as set2perf
         FROM behavioralstudy
-        WHERE experiment='Subtraction'
+        WHERE experiment='Subtraction' AND session>23
         GROUP BY animal,session
         HAVING set2perf IS NOT NULL
         ORDER BY animal,session

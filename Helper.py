@@ -53,14 +53,14 @@ def getFlatLOTrialset():
     singdist = []
     sum_correct = (tset[:,0]+tset[:,1])>tset[:,2]
                    
-    (tset[:,0]+tset[:,1])*sum_correct + tset[:,2]*(np.negative(sum_correct))
+    #(tset[:,0]+tset[:,1])*sum_correct + tset[:,2]*(np.negative(sum_correct))
     for si in using:
         thissing = tset[:,2]==si
         sc_ts = sum_correct[thissing]
         pcorrect_sing.append(np.mean((tset[thissing,0]+tset[thissing,1]) > tset[thissing,2]))
         avgratio_sing.append(np.mean(
-                                     ((tset[thissing,0]+tset[thissing,1])*np.negative(sc_ts) + tset[thissing,2]*sc_ts)/#small of sum & sing
-                                       ((tset[thissing,0]+tset[thissing,1])*sc_ts + tset[thissing,2]*(np.negative(sc_ts)))#large of sum & sing
+                                     ((tset[thissing,0]+tset[thissing,1])*np.logical_not(sc_ts) + tset[thissing,2]*sc_ts)/#small of sum & sing
+                                       ((tset[thissing,0]+tset[thissing,1])*sc_ts + tset[thissing,2]*(np.logical_not(sc_ts)))#large of sum & sing
                                       ))
         singdist.append(np.mean(thissing))
         
@@ -72,8 +72,8 @@ def getFlatLOTrialset():
         sc_ts = sum_correct[thisp]
         pcorrect_prod.append(np.mean((tset[thisp,0]+tset[thisp,1]) > tset[thisp,2]))
         avgratio_prod.append(np.mean(
-                                     ((tset[thisp,0]+tset[thisp,1])*np.negative(sc_ts) + tset[thisp,2]*sc_ts)/#small of sum & sing
-                                       ((tset[thisp,0]+tset[thisp,1])*sc_ts + tset[thisp,2]*(np.negative(sc_ts)))#large of sum & sing
+                                     ((tset[thisp,0]+tset[thisp,1])*np.logical_not(sc_ts) + tset[thisp,2]*sc_ts)/#small of sum & sing
+                                       ((tset[thisp,0]+tset[thisp,1])*sc_ts + tset[thisp,2]*(np.logical_not(sc_ts)))#large of sum & sing
                                       ))
         proddist.append(np.mean(thissing))
     

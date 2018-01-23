@@ -15,7 +15,6 @@ import Plotter
 import Analyzer
 import Helper
 import sqlite3
-import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -25,6 +24,7 @@ import matplotlib as mpl
 #this ensures that text is editable in illustrator
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
+mpl.rcParams['font.family'] = 'Arial'
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
@@ -118,6 +118,11 @@ model = 'chose_sum ~ aug_num_green + add_num_green + sing_num_green \
 mout2 = Analyzer.logistic_regression(data4,model,groupby=['animal','session'])
 
 
+mout2['aug_ratio'] = mout2['b_aug_num_quad']/mout2['b_aug_num_green']
+mout2['add_ratio'] = mout2['b_add_num_quad']/mout2['b_add_num_green']
+mout2['sing_ratio'] = mout2['b_sing_num_quad']/mout2['b_sing_num_green']
+
+
 #compare visual trials to non-visual trials
 query5 = '''
         SELECT animal,session,
@@ -167,7 +172,7 @@ x_threshperf = [np.mean(data6['thresh_perf'].loc[(data6['session'] == us)&(data6
 query7 = '''
         SELECT animal,augend+addend as sum,singleton,AVG(chose_sum) as chose_sum
         FROM behavioralstudy
-        WHERE experiment='Subtraction'
+        WHERE experiment='Subtraction' AND session>23
         GROUP BY animal,sum,singleton
         ORDER BY animal,sum,singleton
 '''
@@ -190,7 +195,7 @@ query8 = '''
         (((augend+addend)>singleton) AND (augend<singleton) AND (addend<singleton)) as ea,
         (chose_sum = ((augend+addend)>singleton)) as chose_correct
         FROM behavioralstudy
-        WHERE experiment='Subtraction'
+        WHERE experiment='Subtraction' AND session>23
         ORDER BY animal,session,diff
 '''
 data8 = Helper.getData(cur,query8)
@@ -214,7 +219,7 @@ r_set2_sub = [np.mean(data8['chose_correct'].loc[(data8['animal']=='Ruffio') & (
 query9 = '''
         SELECT animal,session,augend,-addend as addend,singleton,chose_sum
         FROM behavioralstudy
-        WHERE experiment='Subtraction'
+        WHERE experiment='Subtraction' AND session>23
         ORDER BY animal,session
 '''
 data9 = Helper.getData(cur,query9)
@@ -224,6 +229,20 @@ model = 'chose_sum ~ augend + addend + singleton'
 mout3 = Analyzer.logistic_regression(data9,model,groupby=['animal','session'])
 
 
+query10 = '''
+        SELECT animal,session,chose_sum,
+        augend,-addend as addend,singleton
+        FROM behavioralstudy
+        WHERE experiment='Subtraction'
+        ORDER BY animal,session
+'''
+
+data10 = Helper.getData(cur,query10) 
+
+
+#recode binary variables as 1/-1 instead of 0/1
+model10 = 'chose_sum ~ augend + addend + singleton'
+mout10 = Analyzer.logistic_regression(df=data10,model=model10,groupby=['animal','session'])
 #%%
 #put it all in a PDF
 
@@ -305,6 +324,36 @@ with PdfPages('D:\\Bart\\Dropbox\\Arith_Figures.pdf') as pdf:
     #plt.tight_layout();
     pdf.savefig()
     
+    h,ax = plt.subplots(1,2,figsize=[2*6,4])
+    animal = 'Xavier'
+    Plotter.lineplot(ax[0],xdata=mout2['session'].loc[mout2['animal']==animal],
+                     ydata=mout2['aug_ratio'].loc[mout2['animal']==animal],
+                    sem=None,xlim=[],ylim=[0,6],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+                 xticks=[],yticks=[],color=[0,1,0],title=[],label='aug-ratio')
+    Plotter.lineplot(ax[0],xdata=mout2['session'].loc[mout2['animal']==animal],
+                     ydata=mout2['add_ratio'].loc[mout2['animal']==animal],
+                    sem=None,xlim=[],ylim=[0,6],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+                 xticks=[],yticks=[],color=[1,0,0],title=[],label='aug-ratio')
+    Plotter.lineplot(ax[0],xdata=mout2['session'].loc[mout2['animal']==animal],
+                     ydata=mout2['sing_ratio'].loc[mout2['animal']==animal],
+                    sem=None,xlim=[],ylim=[0,6],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+                 xticks=[],yticks=[],color=[0,0,1],title=[],label='sing-ratio')
+    ax[0].legend(loc='lower right',fontsize='small',scatterpoints=1,frameon=False)
+    
+    animal = 'Ruffio'
+    Plotter.lineplot(ax[1],xdata=mout2['session'].loc[mout2['animal']==animal],
+                     ydata=mout2['aug_ratio'].loc[mout2['animal']==animal],
+                    sem=None,xlim=[],ylim=[0,6],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+                 xticks=[],yticks=[],color=[0,1,0],title=[],label='aug-ratio')
+    Plotter.lineplot(ax[1],xdata=mout2['session'].loc[mout2['animal']==animal],
+                     ydata=mout2['add_ratio'].loc[mout2['animal']==animal],
+                    sem=None,xlim=[],ylim=[0,6],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+                 xticks=[],yticks=[],color=[1,0,0],title=[],label='aug-ratio')
+    Plotter.lineplot(ax[1],xdata=mout2['session'].loc[mout2['animal']==animal],
+                     ydata=mout2['sing_ratio'].loc[mout2['animal']==animal],
+                    sem=None,xlim=[],ylim=[0,6],ls='solid',xlabel='Session',ylabel='quad-dots coef / uni-dots coef',
+                 xticks=[],yticks=[],color=[0,0,1],title=[],label='sing-ratio')
+    pdf.savefig()
     
     #plot uni dots vs. quad dots coefficients in quad dots experiment
     h,ax = plt.subplots(2,3,figsize=[3*width_per_panel,2*height_per_panel])
@@ -323,15 +372,15 @@ with PdfPages('D:\\Bart\\Dropbox\\Arith_Figures.pdf') as pdf:
     Plotter.scatter(ax[1,0],xdata=mout2['b_aug_num_green'].loc[(mout2['animal']=='Ruffio')],
                     ydata=mout2['b_aug_num_quad'].loc[(mout2['animal']=='Ruffio')],
                     xlabel='Uni-dots coef.',ylabel='Quad-dots coef.',
-                    xlim=[-6.5,6.5],ylim=[-6.5,7],identity='full',title='Monkey R,Augend')
+                    xlim=[-7,7],ylim=[-7,7],identity='full',title='Monkey R,Augend')
     Plotter.scatter(ax[1,1],xdata=mout2['b_add_num_green'].loc[(mout2['animal']=='Ruffio')],
                     ydata=mout2['b_add_num_quad'].loc[(mout2['animal']=='Ruffio')],
                     xlabel='Uni-dots coef.',
-                    xlim=[-7,7],ylim=[-6.5,7],identity='full',title='Monkey R,Addend')
+                    xlim=[-7,7],ylim=[-7,7],identity='full',title='Monkey R,Addend')
     Plotter.scatter(ax[1,2],xdata=mout2['b_sing_num_green'].loc[(mout2['animal']=='Ruffio')],
                     ydata=mout2['b_sing_num_quad'].loc[(mout2['animal']=='Ruffio')],
                     xlabel='Uni-dots coef.',
-                    xlim=[-7,6.5],ylim=[-7,7],identity='full',title='Monkey R, Singleton')
+                    xlim=[-7,7],ylim=[-7,7],identity='full',title='Monkey R, Singleton')
 
     #plt.tight_layout()
     pdf.savefig()
@@ -414,6 +463,37 @@ with PdfPages('D:\\Bart\\Dropbox\\Arith_Figures.pdf') as pdf:
     #plt.tight_layout()
     pdf.savefig()
     
+    #Plot raw coefficients
+    h,ax = plt.subplots(1,2,figsize=[6*2,4])
+    animal = 'Xavier'
+    Plotter.lineplot(ax[0],xdata=mout10['session'].loc[mout10['animal']==animal],
+                     ydata=mout10['b_augend'].loc[mout10['animal']==animal],
+                    sem=None,xlim=[],ylim=[-4,4],ls='-',xlabel='Session',ylabel='reg. coef.',
+                 xticks=[],yticks=[],color=[0,1,0],title=animal,label='minuend',identity='zero')
+    Plotter.lineplot(ax[0],xdata=mout10['session'].loc[mout10['animal']==animal],
+                     ydata=mout10['b_addend'].loc[mout10['animal']==animal],
+                    sem=None,xlim=[],ylim=[-4,4],ls='-',xlabel='Session',ylabel=[],
+                 xticks=[],yticks=[],color=[1,0,0],title=[],label='subtrahend')
+    Plotter.lineplot(ax[0],xdata=mout10['session'].loc[mout10['animal']==animal],
+                     ydata=mout10['b_singleton'].loc[mout10['animal']==animal],
+                    sem=None,xlim=[],ylim=[-4,4],ls='-',xlabel='Session',ylabel=[],
+                 xticks=[],yticks=[],color=[0,0,1],title=[],label='singleton')
+    ax[0].legend(loc='lower right',fontsize='small',scatterpoints=1,frameon=False)
+    
+    animal = 'Ruffio'
+    Plotter.lineplot(ax[1],xdata=mout10['session'].loc[mout10['animal']==animal],
+                     ydata=mout10['b_augend'].loc[mout10['animal']==animal],
+                    sem=None,xlim=[],ylim=[-4,4],ls='-',xlabel='Session',ylabel='reg. coef.',
+                 xticks=[],yticks=[],color=[0,1,0],title=animal,label='minuend',identity='zero')
+    Plotter.lineplot(ax[1],xdata=mout10['session'].loc[mout10['animal']==animal],
+                     ydata=mout10['b_addend'].loc[mout10['animal']==animal],
+                    sem=None,xlim=[],ylim=[-4,4],ls='-',xlabel='Session',ylabel=[],
+                 xticks=[],yticks=[],color=[1,0,0],title=[],label='subtrahend')
+    Plotter.lineplot(ax[1],xdata=mout10['session'].loc[mout10['animal']==animal],
+                     ydata=mout10['b_singleton'].loc[mout10['animal']==animal],
+                    sem=None,xlim=[],ylim=[-4,4],ls='-',xlabel='Session',ylabel=[],
+                 xticks=[],yticks=[],color=[0,0,1],title=[],label='singleton')
+    pdf.savefig()
     
     #plot accuracy in set1 and set2 in subtraction
     h,ax = plt.subplots(1,2,figsize=[2*width_per_panel,height_per_panel])
@@ -443,6 +523,6 @@ with PdfPages('D:\\Bart\\Dropbox\\Arith_Figures.pdf') as pdf:
     Plotter.scatter(ax[1,1],xdata=mout3['b_augend'].loc[(mout3['animal']=='Ruffio')],
                     ydata=mout3['b_singleton'].loc[(mout3['animal']=='Ruffio')],
                     xlabel='Minuend coefficient',ylabel='Singleton coefficient',label='Singleton',
-                    xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey X')
+                    xlim=[-2.5,2.5],ylim=[-2.5,2.5],identity='full',title='Monkey R')
     #plt.tight_layout();
     pdf.savefig()
