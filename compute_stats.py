@@ -499,7 +499,38 @@ tests.append({'description':description19+'(Ruffio)','p':t19_r.pvalue,'stat':t19
               np.mean(mout19['b_singleton'].loc[data19['animal']=='Ruffio'])),'n':n19_r,'df':n19_r-1})
 
 
+###############
+description20 = 'correlation between subtrahend-singleton and session #'
+query20 = '''
+        SELECT animal,session,chose_sum,
+        augend as minuend,-addend as subtrahend,singleton as singleton
+        FROM behavioralstudy
+        WHERE experiment='Subtraction'
+        ORDER BY animal,session
+'''
 
+data20 = Helper.getData(cur,query20) 
+
+
+#recode binary variables as 1/-1 instead of 0/1
+model20 = 'chose_sum ~ minuend + subtrahend + singleton'
+mout20 = Analyzer.logistic_regression(df=data20,model=model20,groupby=['animal','session'])
+
+t20_x = scipy.stats.pearsonr(mout20['b_subtrahend'].loc[mout20['animal']=='Xavier']
+                             -mout20['b_singleton'].loc[mout20['animal']=='Xavier'],
+                            mout20['session'].loc[mout20['animal']=='Xavier'])
+
+t20_r = scipy.stats.pearsonr(mout20['b_subtrahend'].loc[mout20['animal']=='Ruffio']
+                             -mout20['b_singleton'].loc[mout20['animal']=='Ruffio'],
+                            mout20['session'].loc[mout20['animal']=='Ruffio'])
+
+n20_x = len(mout20['b_subtrahend'].loc[mout20['animal']=='Xavier'])
+n20_r = len(mout20['b_subtrahend'].loc[mout20['animal']=='Ruffio'])
+
+tests.append({'description':description20+'(Xavier)','p':t20_x[1],'stat':t20_x[0],
+              'mean':None,'n':n20_x,'df':n20_x-2})
+tests.append({'description':description20+'(Ruffio)','p':t20_r[1],'stat':t20_r[0],
+              'mean':None,'n':n20_r,'df':n20_r-2})
 #%%
 #Print it all out
 
