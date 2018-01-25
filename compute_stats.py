@@ -350,6 +350,12 @@ data13 = Helper.getData(cur,query13)
 model13 = 'chose_sum ~ diff+singleton'
 mout13 = Analyzer.logistic_regression(data13,model13,groupby=['animal','session'],standardize=True)
 
+#average accuracy
+np.mean(data13['chose_sum'].loc[data13['animal']=='Xavier'] == (data13['diff'].loc[data13['animal']=='Xavier']>0))
+np.mean(data13['chose_sum'].loc[data13['animal']=='Ruffio'] == (data13['diff'].loc[data13['animal']=='Ruffio']>0))
+scipy.stats.sem(data13['chose_sum'].loc[data13['animal']=='Xavier'] == (data13['diff'].loc[data13['animal']=='Xavier']>0))
+scipy.stats.sem(data13['chose_sum'].loc[data13['animal']=='Ruffio'] == (data13['diff'].loc[data13['animal']=='Ruffio']>0))
+
 bdiff13x = mout13['b_diff'].loc[mout13['animal']=='Xavier']
 bdiff13r = mout13['b_diff'].loc[mout13['animal']=='Ruffio']
 bsing13x = mout13['b_singleton'].loc[mout13['animal']=='Xavier']
@@ -389,7 +395,7 @@ tests.append({'description':description14+'(Xavier)','p':p14_x,'stat':None,'mean
 tests.append({'description':description14+'(Ruffio)','p':p14_r,'stat':None,'mean':contr,
               'n':len(mout14['p_diff'].loc[mout14['animal']=='Ruffio']),'df':dof})
 
-
+description21
 #==============================================EXP4
 ###############
 description15 = 'one-sample t-test on sum-singleton coef in logistic regression'
