@@ -1,13 +1,27 @@
 This code is for analyzing behavior collected from non-human primates performing an arithmetic task, 
-that requires them to add and subtract small quantities. Data is stored in a SQLite database that
-is not publically available. THIS CODE IS UNDER ACTIVE DEVELOPMENT.
+that requires them to add and subtract small quantities. SQLite database with experimental data is not included. 
 
-There are three main code libraries:
 
-Helper - this contains various helper functions for analyzing this dataset. Some are related to querying the SQL database, others get information about each trialset.
 
-Analyzer - this contains functions related to fitting models using maximum likelihood, regression, and other common analysis.
 
-Plotter - this contains functions related to plotting code. 
+There are three main function libraries:
 
-Anything else is a script. Scripts that begin with 'TEST' are playgrounds for development and testing, or where exploratory analysis takes place. Thus, this code is messy, excessively segmented, and may not run.
+Analyzer - this contains functions related to fitting models using maximum likelihood, regression, and other common analysis. Does not include rudimentary statistical analysis.
+
+Plotter - this contains functions related to plotting code. Format conforms to Lee Lab's standard. 
+
+Helper - this contains various helper functions for analyzing this dataset. Some are related to querying the SQL database, others get information about each experiment.
+
+
+
+
+There are two main scripts:
+
+compute_stats: this contains statistical analysis of my dataset. Performs hypothesis testing, and regression-modeling.
+
+make_figures: this contains analysis and plotting routines to make the figures that will be included in my thesis. 
+
+
+
+
+Anything else is a script or for development purposes, and there is no guarantee that it will run. Scripts that begin with 'TEST' are playgrounds for development, and where exploratory analysis takes place.
