@@ -395,7 +395,6 @@ tests.append({'description':description14+'(Xavier)','p':p14_x,'stat':None,'mean
 tests.append({'description':description14+'(Ruffio)','p':p14_r,'stat':None,'mean':contr,
               'n':len(mout14['p_diff'].loc[mout14['animal']=='Ruffio']),'df':dof})
 
-description21
 #==============================================EXP4
 ###############
 description15 = 'one-sample t-test on sum-singleton coef in logistic regression'
@@ -530,12 +529,25 @@ t20_r = scipy.stats.pearsonr(mout20['b_subtrahend'].loc[mout20['animal']=='Ruffi
                              -mout20['b_singleton'].loc[mout20['animal']=='Ruffio'],
                             mout20['session'].loc[mout20['animal']=='Ruffio'])
 
+t20_x2 = scipy.stats.spearmanr(mout20['b_subtrahend'].loc[mout20['animal']=='Xavier']
+                             -mout20['b_singleton'].loc[mout20['animal']=='Xavier'],
+                            mout20['session'].loc[mout20['animal']=='Xavier'])
+
+t20_r2 = scipy.stats.spearmanr(mout20['b_subtrahend'].loc[mout20['animal']=='Ruffio']
+                             -mout20['b_singleton'].loc[mout20['animal']=='Ruffio'],
+                            mout20['session'].loc[mout20['animal']=='Ruffio'])
+
+
 n20_x = len(mout20['b_subtrahend'].loc[mout20['animal']=='Xavier'])
 n20_r = len(mout20['b_subtrahend'].loc[mout20['animal']=='Ruffio'])
 
-tests.append({'description':description20+'(Xavier)','p':t20_x[1],'stat':t20_x[0],
+tests.append({'description':'pearson'+description20+'(Xavier)','p':t20_x[1],'stat':t20_x[0],
               'mean':None,'n':n20_x,'df':n20_x-2})
-tests.append({'description':description20+'(Ruffio)','p':t20_r[1],'stat':t20_r[0],
+tests.append({'description':'pearson'+description20+'(Ruffio)','p':t20_r[1],'stat':t20_r[0],
+              'mean':None,'n':n20_r,'df':n20_r-2})
+tests.append({'description':'spearman'+description20+'(Xavier)','p':t20_x2[1],'stat':t20_x2[0],
+              'mean':None,'n':n20_x,'df':n20_x-2})
+tests.append({'description':'spearman'+description20+'(Ruffio)','p':t20_r2[1],'stat':t20_r2[0],
               'mean':None,'n':n20_r,'df':n20_r-2})
 #%%
 #Print it all out

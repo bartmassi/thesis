@@ -956,3 +956,29 @@ query = '''
 '''
 
 data = Helper.getData(cur,query)
+
+
+#%%
+
+flatlo = Helper.getFlatLOTrialset()
+query = '''
+        SELECT augend,addend,singleton,chose_sum,augend+addend-singleton as diff,
+        animal,session,trial,(augend+addend-singleton)>0 as sum_correct,
+        1.0*(augend+addend)/singleton as ratio,
+        aug_num_green,add_num_green,sing_num_green,
+        aug_num_quad,add_num_quad,sing_num_quad
+        FROM behavioralstudy
+        WHERE experiment='FlatLO' AND animal='Xavier'
+        ORDER BY animal,session
+'''
+
+data = Helper.getData(cur,query) 
+
+#setup panelplots to make aug/add grid
+data['addaug'] = data['addend']*10 + data['augend']
+data['const'] = data['augend']-data['augend']
+
+model = 'chose_sum ~ aug_num_green * add_num_green * sing_num_green * aug_num_quad '
+lr_be = Analyzer.logistic_backwardselimination_sessionwise(df=data,model=model,
+                groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)
+data['pred'] = lr_be['final_modelout'].fittedvalues[0]

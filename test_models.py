@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 from matplotlib.backends.backend_pdf import PdfPages
+from functools import reduce
 
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
@@ -86,3 +87,92 @@ lr_addition = Analyzer.logistic_regression(data,model='chose_sum ~ augend + adde
 models = Analyzer.get_models()
 
 wds = Analyzer.fit_model(models['weighted_diff_singprior'],data,data['chose_sum'],[.1,.1])
+
+#%%
+
+query = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO'
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+resolution = 2
+groupby = ['animal']#['animal','session']
+realmin = Analyzer.realmin
+pracmin = .00001 #a practical minimum, so that we don't accidentally square realmin.
+models = Analyzer.get_models()
+
+#Pica et al. 2004, Cantlon & Brannon 2007, Dehaene 2007 model
+print('Dehaene')
+bounds = ((pracmin,1),(pracmin,1),(pracmin,1),)
+parrange = [np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution),
+            np.linspace(pracmin,1,resolution)]
+dm_mout = Analyzer.fit_grid_search(models['dm_full'],data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds)
+
+#Livingstone et al. 2014 model
+print('Livingstone')
+bounds = ((0,None),(None,None),(None,None))
+parrange = [np.linspace(0,10,resolution),np.linspace(-10,10,resolution),
+            np.linspace(-10,10,resolution)]
+livingstone_mout = Analyzer.fit_grid_search(models['livingstone_norm'],data,
+                        data['chose_sum'],parrange,groupby=groupby)
+
+#Linear model
+print('Linear')
+parrange = [np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),
+            np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)]
+linear_mout = Analyzer.fit_grid_groupby(models['linear'],data,data['chose_sum'],
+                        parrange,groupby=groupby)
+
+#non-strawman logarithmic model
+print('Logarithmic')
+parrange = [np.linspace(0,10,resolution),np.linspace(0,10,resolution),
+            np.linspace(0,10,resolution),np.linspace(0,10,resolution)]
+bounds = ((None,None),(pracmin,None),(pracmin,None),(pracmin,None),)
+logarithmic_mout = Analyzer.fit_grid_groupby(models['logarithmic'],data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds)
+
+mouts = [dm_mout,livingstone_mout,linear_mout,logarithmic_mout]                  
+results = linear_mout[groupby]
+results['dm_bic'] = dm_mout['bic']
+results['livingstone_bic'] = livingstone_mout['bic']
+results['logarithmic_bic'] = logarithmic_mout['bic']
+results['linear_bic'] = linear_mout['bic']
+
+
+
+#%%
+#test cross-validation code
+
+query = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO'
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+resolution = 1
+realmin = Analyzer.realmin
+pracmin = .00001 #a practical minimum, so that we don't accidentally square realmin.
+models = Analyzer.get_models()
+
+#Linear model
+print('Livingstone')
+import time
+start = time.time()
+parrange = [np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),
+            np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)]
+linear_mout = Analyzer.fit_grid_loo_validate(models['linear'],data,data['chose_sum'],
+                        parrange,validateby=['session'],groupby=['animal'],method='Nelder-Mead')
+stop = time.time()
+runtime = (stop-start)/60
+
+
