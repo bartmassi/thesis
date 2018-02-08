@@ -32,7 +32,7 @@ def standardize_ticks(ax,plotfont,fontsize):
     
 
 def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=[],
-            color=[1,1,1],title=[],identity='off',label=[]):
+            color=[1,1,1],title=[],identity='off',label=[],corrline=None):
 
     #font information
     plotfont = 'Arial'
@@ -108,6 +108,11 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
         ax.plot(xlimits,[0,0],'--',color='black')
     if(identity.lower() == 'cross' or identity.lower() == 'full'):
         ax.plot([0,0],ylimits,'--',color='black')
+        
+        
+    if(corrline == 'on'):
+        m,b = np.polyfit(xdata,ydata,1)
+        ax.plot(xlimits,m*np.array(xlimits)+b,'-',color='blue')
 
     #make plot a square
     ylimits = ax.get_ylim()

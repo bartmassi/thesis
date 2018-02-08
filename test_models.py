@@ -19,7 +19,8 @@ import numpy as np
 import scipy
 from matplotlib.backends.backend_pdf import PdfPages
 from functools import reduce
-
+import pickle as pkl
+import time
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
@@ -100,8 +101,9 @@ query = '''
 '''
 data = Helper.getData(cur,query)
 
-resolution = 2
+resolution = 5
 groupby = ['animal']#['animal','session']
+method = 'Nelder-Mead'
 realmin = Analyzer.realmin
 pracmin = .00001 #a practical minimum, so that we don't accidentally square realmin.
 models = Analyzer.get_models()
@@ -116,33 +118,47 @@ dm_mout = Analyzer.fit_grid_search(models['dm_full'],data,data['chose_sum'],
 
 #Livingstone et al. 2014 model
 print('Livingstone')
-bounds = ((0,None),(None,None),(None,None))
+bounds = ((0,None),(pracmin,None),(None,None))
 parrange = [np.linspace(0,10,resolution),np.linspace(-10,10,resolution),
             np.linspace(-10,10,resolution)]
 livingstone_mout = Analyzer.fit_grid_search(models['livingstone_norm'],data,
-                        data['chose_sum'],parrange,groupby=groupby)
+                        data['chose_sum'],parrange,bounds=bounds,groupby=groupby)
 
 #Linear model
 print('Linear')
 parrange = [np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),
             np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)]
-linear_mout = Analyzer.fit_grid_groupby(models['linear'],data,data['chose_sum'],
-                        parrange,groupby=groupby)
+linear_mout = Analyzer.fit_grid_search(models['linear'],data,data['chose_sum'],
+                        parrange,groupby=groupby,method=method)
 
 #non-strawman logarithmic model
-print('Logarithmic')
+print('Logarithmic (log(b*sum))')
 parrange = [np.linspace(0,10,resolution),np.linspace(0,10,resolution),
             np.linspace(0,10,resolution),np.linspace(0,10,resolution)]
 bounds = ((None,None),(pracmin,None),(pracmin,None),(pracmin,None),)
-logarithmic_mout = Analyzer.fit_grid_groupby(models['logarithmic'],data,data['chose_sum'],
+logarithmic_mout = Analyzer.fit_grid_search(models['logarithmic'],data,data['chose_sum'],
                         parrange,groupby=groupby,bounds=bounds)
 
-mouts = [dm_mout,livingstone_mout,linear_mout,logarithmic_mout]                  
-results = linear_mout[groupby]
-results['dm_bic'] = dm_mout['bic']
-results['livingstone_bic'] = livingstone_mout['bic']
-results['logarithmic_bic'] = logarithmic_mout['bic']
-results['linear_bic'] = linear_mout['bic']
+print('Logarithmic 2 (b*log(sum))')
+parrange = [np.linspace(0,10,resolution),np.linspace(0,10,resolution),
+            np.linspace(0,10,resolution)]
+logarithmic2_mout = Analyzer.fit_grid_search(models['logarithmic2'],data,data['chose_sum'],
+                        parrange,groupby=groupby,method=method)
+
+print('Logarithmic 3 (AAS)')
+parrange = [np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),
+            np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)]
+logaas_mout = Analyzer.fit_grid_search(models['log_aas'],data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds)
+
+
+
+#mouts = [dm_mout,livingstone_mout,linear_mout,logarithmic_mout]                  
+#results = linear_mout[groupby]
+#results['dm_bic'] = dm_mout['bic']
+#results['livingstone_bic'] = livingstone_mout['bic']
+#results['logarithmic_bic'] = logarithmic_mout['bic']
+#results['linear_bic'] = linear_mout['bic']
 
 
 
@@ -175,4 +191,134 @@ linear_mout = Analyzer.fit_grid_loo_validate(models['linear'],data,data['chose_s
 stop = time.time()
 runtime = (stop-start)/60
 
+#%%
+#Fit models to entire data, to each session, and cross-validate them.
 
+query = '''
+        SELECT session,animal,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO'
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+#Some parameters for fitting
+resolution = 5              #grid search resolution
+method = 'Nelder-Mead'      #Fitting algorithm
+
+#Some invariants for fitting
+realmin = Analyzer.realmin#smallest floating point number supported by numpy
+pracmin = .00001 #a practical minimum, so that we don't accidentally square realmin.
+models = Analyzer.get_models()#the models
+
+model_names = ['dm_full','livingstone_norm','linear','logarithmic2']
+bounds = (((pracmin,1),(pracmin,1),(pracmin,1),),
+          ((0,None),(pracmin,None),(None,None)),
+          ((None,None),(None,None),(None,None),(None,None)),
+          ((None,None),(None,None),(None,None)))
+parrange = ((np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution)),
+            (np.linspace(0,10,resolution),np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)),
+            (np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)),
+            (np.linspace(0,10,resolution),np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)))
+
+nmodel = len(model_names)
+assert len(bounds)==nmodel
+assert len(parrange)==nmodel
+model_out = []
+for i in range(0,nmodel):
+    print(model_names[i])
+    
+    #Fit combined data
+    fit_all_out = Analyzer.fit_grid_search(models[model_names[i]],data,data['chose_sum'],
+                        parrange[i],groupby=['animal'],bounds=bounds[i])
+    
+    #Set the initial guesses as the best-fitting values from all-session fit
+    new_init = [(x,y) for x,y in zip(fit_all_out['par'][0],fit_all_out['par'][1])]
+    
+    #Fit each session separately
+    fit_sess_out = Analyzer.fit_grid_search(models[model_names[i]],data,data['chose_sum'],
+                        new_init,groupby=['animal','session'],bounds=bounds[i])
+    
+    #Cross-validation
+    cv_out = Analyzer.fit_grid_loo_validate(models[model_names[i]],data,data['chose_sum'],
+                        new_init,validateby=['session'],groupby=['animal'],method='Nelder-Mead')
+
+    #Store it
+    model_out.append((fit_all_out,fit_sess_out,cv_out))
+
+fname = 'arithmetic_modeling_'+str(int(np.floor(time.time())))
+floc = 'D:\\Bart\\dropbox\\'
+pkl.dump(model_out,open(floc+fname,'wb'))
+
+
+#%%
+#Fit models to entire Addition/Subtraction data, to each session, and cross-validate them.
+
+query = '''
+        SELECT session,animal,experiment,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+
+#Some parameters for fitting
+resolution = 1              #grid search resolution
+method = None      #Fitting algorithm
+groupby = ['animal','experiment']
+validateby = ['session']
+sess_groupby = ['animal','experiment','session']
+
+#Some invariants for fitting
+realmin = Analyzer.realmin#smallest floating point number supported by numpy
+pracmin = .00001 #a practical minimum, so that we don't accidentally square realmin.
+models = Analyzer.get_models()#the models
+
+model_names = ['dm_full','livingstone_norm','linear','logarithmic2']
+bounds = (((pracmin,1),(pracmin,1),(pracmin,1),),
+          ((0,None),(None,None),(None,None)),
+          ((None,None),(None,None),(None,None),(None,None)),
+          ((None,None),(None,None),(None,None)))
+parrange = ((np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution)),
+            (np.linspace(pracmin,10,resolution),np.linspace(1,10,resolution),np.linspace(-10,10,resolution)),
+            (np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)),
+            (np.linspace(-10,10,resolution),np.linspace(-10,10,resolution),np.linspace(-10,10,resolution)))
+
+nmodel = len(model_names)
+assert len(bounds)==nmodel
+assert len(parrange)==nmodel
+model_out = []
+for i in range(0,nmodel):
+    print(model_names[i])
+    
+    #Fit combined data
+    fit_all_out = Analyzer.fit_grid_search(models[model_names[i]],data,data['chose_sum'],
+                        parrange[i],groupby=groupby,bounds=bounds[i],method=method)
+    
+    #Set the initial guesses as the best-fitting values from all-session fit
+    new_init = [(x,y) for x,y in zip(fit_all_out['par'][0],fit_all_out['par'][1])]
+    
+    #Fit each session separately
+    fit_sess_out = Analyzer.fit_grid_search(models[model_names[i]],data,data['chose_sum'],
+                        new_init,groupby=sess_groupby,bounds=bounds[i])
+    
+    #Cross-validation
+    cv_out = Analyzer.fit_grid_loo_validate(models[model_names[i]],data,data['chose_sum'],
+                        new_init,validateby=validateby,groupby=groupby,method=method)
+
+    #Store it
+    model_out.append((fit_all_out,fit_sess_out,cv_out))
+    
+    
+fname = 'AddSubtract_modeling_'+str(int(np.floor(time.time())))
+floc = 'D:\\Bart\\dropbox\\'
+pkl.dump(model_out,open(floc+fname,'wb'))
+
+
+w = fit_all_out['par'][1]
+models['livingstone_norm'](w,data.loc[data['experiment']=='Subtraction'])

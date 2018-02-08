@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 from matplotlib.backends.backend_pdf import PdfPages
+import pdb
+from sklearn.decomposition import PCA
 
 dbfloc = 'D:\\Bart\\Dropbox\\science\\leelab\\projects\\Arithmetic\\data\\_curatedData\\'
 conn = sqlite3.connect(database=dbfloc+'arithmeticstudy.db')
@@ -982,3 +984,49 @@ model = 'chose_sum ~ aug_num_green * add_num_green * sing_num_green * aug_num_qu
 lr_be = Analyzer.logistic_backwardselimination_sessionwise(df=data,model=model,
                 groupby=['animal','session'],groupby_thresh=.05,pthresh=.05)
 data['pred'] = lr_be['final_modelout'].fittedvalues[0]
+
+
+
+#%%
+#Try PCA & cluster on choices in flat log odds trialset
+query = '''
+        SELECT animal,session,trial,augend,addend,singleton,chose_sum,aug_num_green,aug_num_quad,
+        chose_sum=chose_right as sum_right
+        FROM behavioralstudy
+        WHERE experiment = 'FlatLO' and animal='Xavier'
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+#the number of unique conditions in the flat log odds experiment
+#this corresponds to unique combinations of aug_num_green, aug_num_quad, addend, singleton, and sum_right
+n_unique_trials = 212 
+animal = 'Xavier'
+usess = np.unique(data['session'].loc[data['animal']==animal])
+nsess = len(usess)
+chose_sum_vec = []
+trial_types = []
+for i in range(0,nsess):
+    t = data.loc[(data['animal']==animal) & (data['session']==usess[i])]
+    ntrial = t.shape[0]
+    nfullblocks = np.floor(ntrial/n_unique_trials).astype(int)
+    
+    for j in range(0,nfullblocks):
+        trials = t[['aug_num_green','aug_num_quad','addend','singleton','sum_right','chose_sum']].iloc[(j*n_unique_trials):((j+1)*n_unique_trials)].sort(['aug_num_green','aug_num_quad','addend','singleton','sum_right'])
+        
+        if(len(trials)==len(trials.drop_duplicates())):
+            chose_sum_vec.append(trials['chose_sum'])
+            trial_types.append(trials)
+        else:
+            print('sess:'+str(i)+', block:'+str(j))
+
+chose_sum = np.array(chose_sum_vec)#obs,features
+pca = PCA(n_components=3)
+pca.fit(chose_sum)
+exp_var = pca.explained_variance_ratio_
+transformed_data = pca.transform(chose_sum)
+
+from mpl_toolkits.mplot3d import Axes3D
+fig = plt.figure()
+ax = fig.add_subplot(111,projection='3d')
+ax.scatter(transformed_data[:,0],transformed_data[:,1],transformed_data[:,2])

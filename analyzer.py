@@ -74,17 +74,27 @@ def get_models():
                 (1-ratiofun(data)*w[1])*(data['sum']-data['singleton']) + ratiofun(data)*w[1]*data['sing_prior'])
     
     #2 parameters
-    norm_coef = lambda w,q1,q2: 1.0/(1.0+w[0]*np.power(np.power(q1,w[1]) + np.power(q2,w[1]),(1.0/w[1])) )
+    norm_coef = lambda w,q1,q2: 1.0/(1.0+w[0]*np.power(np.power(np.abs(q1),w[1]) + np.power(np.abs(q2),w[1]),(1.0/w[1])) )
     livingstone_norm = lambda w,data: logistic(w[2]*(norm_coef(w[0:2],data['addend'],data['singleton'])*data['augend'] 
         + norm_coef(w[0:2],data['augend'],data['singleton'])*data['addend'] 
         - norm_coef(w[0:2],data['augend'],data['addend'])*data['singleton']))
     
     #a model in which the ratio of the sum and singleton are compared.
+    #coefficients are on the aug,add,sing prior to log transform.
     #4 parameters
     logarithmic = lambda w,data: logistic(w[0] + np.log(w[1]*data['augend']+w[2]*data['addend']) 
         - np.log(w[3]*data['singleton']))
     
+    #a model in which the ratio of the sum and singleton are compared.
+    #coefficients are on the log of the sum and singleton.
+    #4 parameters
+    logarithmic2 = lambda w,data: logistic(w[0] + w[1]*np.log(data['augend']+data['addend']) 
+        - w[2]*np.log(data['singleton']))
     
+    #a model where the log of the aug, add, sing are combined
+    #4 parameters
+    log_aas = lambda w,data: logistic(w[0] + w[1]*np.log(data['augend']) + w[2]*np.log(data['addend'])
+        + w[3]*np.log(data['singleton']))
     
     models = {'cost':cost,'dm_onescale':dm_onescale,
     'dm_full':dm_full,
@@ -94,7 +104,9 @@ def get_models():
     'weightfun':weightfun,
     'weighted_diff_singprior':weighted_diff_singprior,
     'livingstone_norm':livingstone_norm,
-    'logarithmic':logarithmic}
+    'logarithmic':logarithmic,
+    'logarithmic2':logarithmic2,
+    'log_aas':log_aas}
     
     return models
 
