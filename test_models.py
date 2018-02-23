@@ -268,7 +268,7 @@ data = Helper.getData(cur,query)
 
 
 #Some parameters for fitting
-resolution = 1              #grid search resolution
+resolution = 4              #grid search resolution
 method = None      #Fitting algorithm
 groupby = ['animal','experiment']
 validateby = ['session']
@@ -281,7 +281,7 @@ models = Analyzer.get_models()#the models
 
 model_names = ['dm_full','livingstone_norm','linear','logarithmic2']
 bounds = (((pracmin,1),(pracmin,1),(pracmin,1),),
-          ((0,None),(None,None),(None,None)),
+          ((0,None),(.001,100),(None,None)),
           ((None,None),(None,None),(None,None),(None,None)),
           ((None,None),(None,None),(None,None)))
 parrange = ((np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution)),
@@ -312,13 +312,316 @@ for i in range(0,nmodel):
                         new_init,validateby=validateby,groupby=groupby,method=method)
 
     #Store it
-    model_out.append((fit_all_out,fit_sess_out,cv_out))
+    model_out.append((model_names[i],fit_all_out,fit_sess_out,cv_out))
     
     
 fname = 'AddSubtract_modeling_'+str(int(np.floor(time.time())))
 floc = 'D:\\Bart\\dropbox\\'
 pkl.dump(model_out,open(floc+fname,'wb'))
 
+cond = (data['animal']=='Ruffio') & (data['experiment']=='Addition')
+models['cost'](data['chose_sum'].loc[cond],models['livingstone_norm'](model_out[1][0]['par'][0],data.loc[cond]))
 
-w = fit_all_out['par'][1]
-models['livingstone_norm'](w,data.loc[data['experiment']=='Subtraction'])
+
+floc = 'D:\\Bart\\dropbox\\'
+model_out_in = pkl.load(open(floc+'AddSubtract_modeling_1518389483','rb'))
+
+w = model_out_in[1][0]['par'][3]
+w = [0,.001,-2]
+models['livingstone_norm'](w,data)
+
+#CV accuracy
+[d[2].groupby(['animal','experiment'])['cv_acc'].mean() for d in model_out_in]
+ 
+ 
+[d[2]['cv_acc'].loc[(d[2]['animal']=='Xavier') & (d[2]['experiment']=='Addition')] for d in model_out_in]
+
+
+#%%
+
+#Fit Dehaene model w/ term for non-linear relationship between variance and
+#quantity.
+query = '''
+        SELECT session,animal,experiment,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+
+#Some parameters for fitting
+resolution = 1              #grid search resolution
+method = None      #Fitting algorithm
+groupby = ['animal','experiment']
+validateby = ['session']
+sess_groupby = ['animal','experiment','session']
+
+#Some invariants for fitting
+realmin = Analyzer.realmin#smallest floating point number supported by numpy
+pracmin = .00001 #a practical minimum, so that we don't accidentally square realmin.
+models = Analyzer.get_models()#the models
+
+#################################################################################
+#The conclusion of this work is that, with the exception of Ruffio's addition data,
+#I can't get the dehaene model to beat the linear model with one or 2nd order terms.
+#################################################################################
+
+#Restrictions for dm_full_nonlinear
+#bounds = ((None,None),(None,None),(None,None),(None,None),
+#          (pracmin,None),(pracmin,None),(pracmin,None),(-4,None))
+#parrange = (np.linspace(1,10,resolution),np.linspace(1,10,resolution),
+#            np.linspace(1,10,resolution),np.linspace(1,10,resolution),
+#            np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution),
+#            np.linspace(pracmin,1,resolution),
+#            np.linspace(1,10,resolution))
+#fit_all_out = Analyzer.fit_grid_search(models['dm_full_nonlinear'],data,data['chose_sum'],
+#                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+#Same weight for all numbers in numerator. 
+#dm_nonlinear = lambda w,data: models['dm_full_nonlinear']([w[0],1,1,1,w[1],w[2],w[3],w[4]],data)
+#bounds = ((None,None),(pracmin,None),(pracmin,None),(pracmin,None),(-10,None))
+#parrange = (np.linspace(1,10,resolution),np.linspace(pracmin,1,resolution),
+#            np.linspace(pracmin,1,resolution),np.linspace(pracmin,1,resolution),
+#            np.linspace(1,10,resolution))
+#fit_all_out = Analyzer.fit_grid_search(dm_nonlinear,data,data['chose_sum'],
+#                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+#Same weight for quantity variance
+#dm_nonlinear_oneweight = lambda w,data: models['dm_full_nonlinear']([0,w[0],w[1],w[2],w[3],w[3],w[3],w[4]],data)
+#bounds = ((None,None),(None,None),(None,None),(pracmin,None),(pracmin,None))
+#parrange = (np.linspace(1,3,resolution),
+#            np.linspace(1,3,resolution),np.linspace(1,3,resolution),
+#            np.linspace(.1,3,resolution),np.linspace(.1,1,resolution))
+#fit_all_out = Analyzer.fit_grid_search(dm_nonlinear_oneweight,data,data['chose_sum'],
+#                        parrange,groupby=groupby,bounds=bounds,method=method,tol=.0000001)
+
+#Same weight for quantity variance and numerator. Variable intercept in numerator
+#dm_nonlinear_oneweight = lambda w,data: models['dm_full_nonlinear']([w[0],1,1,1,w[1],w[1],w[1],w[2]],data)
+#bounds = ((None,None),(pracmin,None),(pracmin,None))
+#parrange = (np.linspace(1,3,resolution),np.linspace(.1,3,resolution),np.linspace(.1,1,resolution))
+#fit_all_out = Analyzer.fit_grid_search(dm_nonlinear_oneweight,data,data['chose_sum'],
+#                        parrange,groupby=groupby,bounds=bounds,method=method,tol=.0000001)
+
+#intercept and weight for difference, same weight for all quantity variance.
+#dm_nonlinear_oneweight = lambda w,data: models['dm_full_nonlinear']([w[0],w[1],w[1],w[1],w[2],w[2],w[2],w[3]],data)
+#bounds = ((None,None),(None,None),(pracmin,None),(pracmin,None))
+#parrange = (np.linspace(1,3,resolution),np.linspace(1,3,resolution),np.linspace(.1,3,resolution),np.linspace(.1,1,resolution))
+#fit_all_out = Analyzer.fit_grid_search(dm_nonlinear_oneweight,data,data['chose_sum'],
+#                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+#intercept and weight for difference, diff weight for all quantity variance.
+#dm_nonlinear_oneweight = lambda w,data: models['dm_full_nonlinear']([w[0],w[1],w[1],w[1],w[2],w[3],w[4],w[5]],data)
+#bounds = ((None,None),(None,None),(pracmin,None),(pracmin,None),(pracmin,None),(pracmin,None))
+#parrange = (np.linspace(-3,3,resolution),np.linspace(.1,3,resolution),
+#            np.linspace(.1,1,resolution),np.linspace(.1,1,resolution),
+#            np.linspace(.1,1,resolution),np.linspace(.1,1,resolution))
+#fit_all_out = Analyzer.fit_grid_search(dm_nonlinear_oneweight,data,data['chose_sum'],
+#                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+#linear numerator, diff weight for all quantity variance.
+dm_nonlinear_oneweight = lambda w,data: models['dm_full_nonlinear']([0,1,1,1,w[0],w[1],w[2],w[3]],data)
+bounds = ((pracmin,None),(pracmin,None),(pracmin,None),(pracmin,None))
+parrange = (np.linspace(.1,1,resolution),np.linspace(.1,1,resolution),
+            np.linspace(.1,1,resolution),np.linspace(.1,1,resolution))
+fit_all_out = Analyzer.fit_grid_search(dm_nonlinear_oneweight,data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+
+#Linear numerator, same weight for all quantity variance.
+dm_nonlinear_oneweight = lambda w,data: models['dm_full_nonlinear']([0,1,1,1,w[0],w[0],w[0],w[1]],data)
+bounds = ((pracmin,None),(pracmin,None))
+parrange = (np.linspace(.1,1,resolution),np.linspace(.1,2,resolution))
+fit_all_out = Analyzer.fit_grid_search(dm_nonlinear_oneweight,data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+
+#Compare to linear models
+lr_model = 'chose_sum ~ augend + addend + singleton'
+lr_out = Analyzer.logistic_regression(data,lr_model,groupby=groupby)
+
+#Compare to linear models
+lr_2ndorder_model = 'chose_sum ~ augend + addend + singleton + np.power(augend,2) + np.power(addend,2) + np.power(singleton,2)'
+lr_2ndorder_out = Analyzer.logistic_regression(data,lr_2ndorder_model,groupby=groupby)
+
+cond = (data['animal']=='Xavier') & (data['experiment'] == 'Addition')
+w = fit_all_out['par'][2]
+d = data.loc[cond]
+
+pred = dm_nonlinear_oneweight(w,d)
+y = data['chose_sum'].loc[cond]
+
+models['cost'](y,pred)
+
+
+
+#%%
+#Fit Dehaene model w/ term for non-linear relationship between variance and
+#quantity. Examine relationship to p(correct)
+query = '''
+        SELECT session,animal,experiment,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+#Some parameters for fitting
+resolution = 3              #grid search resolution
+method = None      #Fitting algorithm
+groupby = ['animal','experiment']
+validateby = ['session']
+sess_groupby = ['animal','experiment','session']
+
+#Some invariants for fitting
+realmin = Analyzer.realmin#smallest floating point number supported by numpy
+pracmin = .001 #a practical minimum, so that we don't accidentally square realmin.
+expmin = .01
+models = Analyzer.get_models()#the models
+
+#linear numerator, diff weight for all quantity variance.
+dm_nonlinear_oneweight = lambda w,data: models['dm_full_nonlinear']([0,1,1,1,w[0],w[1],w[2],w[3]],data)
+dm_var_nonlinear = lambda w,data: np.power((w[0]**(1.0/w[3]))*data['augend']**2 
+            + (w[1]**(1.0/w[3]))*data['addend']**2 + (w[2]**(1.0/w[3]))*data['singleton']**2,w[3])
+
+#fit the model.
+bounds = ((pracmin,None),(pracmin,None),(pracmin,None),(expmin,None))
+parrange = (np.linspace(.1,1,resolution),np.linspace(.1,1,resolution),
+            np.linspace(.1,1,resolution),np.linspace(.1,5,resolution))
+fit_all_out = Analyzer.fit_grid_search(dm_nonlinear_oneweight,data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+#fit linear model for comparison
+lr_out = Analyzer.logistic_regression(data,'chose_sum ~ augend+addend+singleton',groupby=groupby)
+
+
+#Plot p(correct) as a function of fitted internal variance
+query = '''
+        SELECT animal,experiment,augend,addend,singleton,AVG(chose_sum==((augend+addend)>singleton)) as pcor
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        GROUP BY animal,experiment,augend,addend,singleton
+        ORDER BY animal,session
+'''
+data2 = Helper.getData(cur,query)
+
+height_per_panel = 6
+width_per_panel = 6
+h,ax = plt.subplots(2,2,figsize=[2*width_per_panel,2*height_per_panel])
+
+#iterate through experiments and plot correlation between p(correct) and internal variance
+animals = ['Ruffio','Xavier']
+experiments = ['Addition','Subtraction']
+corr = []
+for i in range(0,len(animals)):
+    for j in range(0,len(experiments)):
+        cond = (data2['experiment']==experiments[j]) & (data2['animal']==animals[i])
+        d = data2.loc[cond]
+        d['dm_var'] = dm_var_nonlinear(fit_all_out['par'][i*2 + j],d)
+        Plotter.scatter(ax[i,j],xdata=d['dm_var'],ydata=d['pcor'],
+                        xlabel='Internal variance',ylabel='accuracy',
+                title=animals[i]+', '+experiments[j],ylim=[0,1],xlim=[],xticks=[],
+                yticks=[0,0.25,0.5,0.75,1],corrline='on')
+        corr.append((animals[i],experiments[j],scipy.stats.spearmanr(d['dm_var'],d['pcor'])))
+
+
+
+
+
+cond = (data['animal']=='Xavier') & (data['experiment'] == 'Addition')
+w = [.4,.4,.4,.01]#fit_all_out['par'][2]
+d = data.loc[cond]
+dm_nonlinear_oneweight(w,d)
+
+pred = dm_nonlinear_oneweight(w,d)
+y = data['chose_sum'].loc[cond]
+
+#%%
+#Backwards elimination on data w/ 
+query = '''
+        SELECT session,animal,experiment,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+#Some parameters for fitting
+resolution = 3              #grid search resolution
+method = None      #Fitting algorithm
+validateby = ['session']
+groupby = ['animal','experiment','session']
+
+
+be_out = logistic_backwardselimination_sessionwise(df,model,groupby=groupby,
+          groupby_thresh=.05,pthresh=.05)
+
+
+#%%
+#Fit power function model to data
+query = '''
+        SELECT session,animal,experiment,chose_sum,augend,addend,singleton,
+        augend+addend-singleton as diff,(augend+addend)/singleton as ratio,
+        augend+addend as sum
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+#Some parameters for fitting
+resolution = 2              #grid search resolution
+method = None      #Fitting algorithm
+groupby = ['animal','experiment']
+validateby = ['session']
+sess_groupby = ['animal','experiment','session']
+
+#Some invariants for fitting
+realmin = Analyzer.realmin#smallest floating point number supported by numpy
+pracmin = .001 #a practical minimum, so that we don't accidentally square realmin.
+models = Analyzer.get_models()#the models
+
+#N is a free parameter for everything
+power_full = lambda w,data: models['power'](w,data)
+bounds = ((None,None),(None,None),(None,None),(None,None),(pracmin,None),(pracmin,None),(pracmin,None))
+parrange = (np.linspace(-2,2,resolution),np.linspace(-2,2,resolution),
+            np.linspace(-2,2,resolution),np.linspace(-2,2,resolution),
+            np.linspace(pracmin,2,resolution),np.linspace(pracmin,2,resolution),
+            np.linspace(pracmin,2,resolution))
+fit_all_out = Analyzer.fit_grid_search(power_full,data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds,method=method) 
+
+
+#N is different for visible items (addend,singleton) and items in WM (augend)
+power_vis_nonvis = lambda w,data: models['power']([w[0],w[1],w[2],w[3],w[4],w[5],w[5]],data)
+bounds = ((None,None),(None,None),(None,None),(None,None),(pracmin,None),(pracmin,None))
+parrange = (np.linspace(-2,2,resolution),np.linspace(-2,2,resolution),
+            np.linspace(-2,2,resolution),np.linspace(-2,2,resolution),
+            np.linspace(pracmin,2,resolution),np.linspace(pracmin,2,resolution))
+fit_all_out = Analyzer.fit_grid_search(power_vis_nonvis,data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+
+#N is the same for all terms
+power_single = lambda w,data: models['power']([w[0],w[1],w[2],w[3],w[4],w[4],w[4]],data)
+bounds = ((None,None),(None,None),(None,None),(None,None),(pracmin,None))
+parrange = (np.linspace(-2,2,resolution),np.linspace(-2,2,resolution),
+            np.linspace(-2,2,resolution),np.linspace(-2,2,resolution),
+            np.linspace(pracmin,2,resolution))
+fit_all_out = Analyzer.fit_grid_search(power_vis_nonvis,data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds,method=method)
+
+
+#N is one
+linear = lambda w,data: models['linear'](w,data)
+bounds = ((None,None),(None,None),(None,None),(None,None))
+parrange = (np.linspace(-2,2,resolution),np.linspace(-2,2,resolution),
+            np.linspace(-2,2,resolution),np.linspace(-2,2,resolution))
+fit_all_out = Analyzer.fit_grid_search(linear,data,data['chose_sum'],
+                        parrange,groupby=groupby,bounds=bounds,method=method)

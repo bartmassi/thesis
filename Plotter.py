@@ -18,6 +18,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import scipy
 import pdb
+import pandas as pd
 #https://matplotlib.org/faq/howto_faq.html#save-multiple-plots-to-one-pdf-file
 
 def standardize_ticks(ax,plotfont,fontsize):
@@ -81,8 +82,14 @@ def scatter(ax,xdata,ydata,xlim=[],ylim=[],xlabel=[],ylabel=[],xticks=[],yticks=
     #set xticks
     if(xticks):
         ax.set_xticks(xticks)
+    elif(xticks is None):
+        ax.set_xticks([])
     if(yticks):
         ax.set_yticks(yticks)
+    elif(yticks is None):
+        ax.set_yticks([])
+        
+    
     
     standardize_ticks(ax,plotfont,fontsize)
     
@@ -177,8 +184,12 @@ def lineplot(ax,xdata,ydata,sem=None,xlim=[],ylim=[],ls='solid',xlabel=[],ylabel
     #set xticks
     if(xticks):
         ax.set_xticks(xticks)
+    elif(xticks is None):
+        ax.set_xticks([])
     if(yticks):
         ax.set_yticks(yticks)
+    elif(yticks is None):
+        ax.set_yticks([])
     
     #set tick font info
     standardize_ticks(ax,plotfont,fontsize)
@@ -262,6 +273,7 @@ def gridplot(ax,datamat,title=[],xticks=[],yticks=[],xticklabels=[],yticklabels=
         ax.set_xticklabels(xticklabels)
     if(yticklabels):
         ax.set_yticklabels(yticklabels)
+    
         
     standardize_ticks(ax,plotfont,fontsize)
     
@@ -276,7 +288,7 @@ def gridplot(ax,datamat,title=[],xticks=[],yticks=[],xticklabels=[],yticklabels=
 #This uses 3 groupby variables to plot a DV against one IV in subplots, a
 #second IV in separate lines, and a third IV on the x-axis. 
 def panelplots(data,plotvar,groupby,axes=None,scattervar=[],xlim=[],ylim=[],xlabel=[],ylabel=[],
-               xticks=[],yticks=[],horiz=None,maxcol=3.0,legend='on'):
+               title=None,xticks=[],yticks=[],horiz=None,maxcol=3.0,legend='on'):
     
     assert len(groupby)==3
 
@@ -287,7 +299,8 @@ def panelplots(data,plotvar,groupby,axes=None,scattervar=[],xlim=[],ylim=[],xlab
     #groupby_unique = data[groupby].drop_duplicates()#unique values of groupby variable
     marginal_groupby_unique = []
     for gb in groupby:
-        ustorage = data[gb].loc[~np.isnan(data[gb])].drop_duplicates().sort_values(inplace=False)
+        #ustorage = data[gb].loc[~np.isnan(data[gb])].drop_duplicates().sort_values(inplace=False)
+        ustorage = data[gb].loc[~pd.isnull(data[gb])].drop_duplicates().sort_values(inplace=False)
         marginal_groupby_unique.append(ustorage)
         #throw out nan values
         
@@ -305,7 +318,7 @@ def panelplots(data,plotvar,groupby,axes=None,scattervar=[],xlim=[],ylim=[],xlab
         cmap = plt.get_cmap('cool')
         cmap_index = np.array([1])
     #determine subplot dimensions
-    nrow = int(np.ceil(n_subplot/maxcol));
+    nrow = int(np.ceil(n_subplot/maxcol))
     ncol = int(np.min([n_subplot,maxcol]))
     
     #make the plots
@@ -324,15 +337,18 @@ def panelplots(data,plotvar,groupby,axes=None,scattervar=[],xlim=[],ylim=[],xlab
             yerr = []
             for k in range(0,n_x):
                 #collect scatter data
+                thiscond = [marginal_groupby_unique[0].iloc[i],
+                                    marginal_groupby_unique[1].iloc[j],
+                                    marginal_groupby_unique[2].iloc[k]]
                 #pdb.set_trace()
-                scatterdata = data[scattervar].loc[np.sum(data[groupby] == 
-                                    np.array([marginal_groupby_unique[0].iloc[i],
-                                    marginal_groupby_unique[1].iloc[j],
-                                    marginal_groupby_unique[2].iloc[k]]),axis=1)==len(groupby)]
-                plotdata = data[plotvar].loc[np.sum(data[groupby] == 
-                                    np.array([marginal_groupby_unique[0].iloc[i],
-                                    marginal_groupby_unique[1].iloc[j],
-                                    marginal_groupby_unique[2].iloc[k]]),axis=1)==len(groupby)]
+                scatterdata = data[scattervar].loc[(data[groupby[0]]==thiscond[0]) 
+                    & (data[groupby[1]]==thiscond[1]) & (data[groupby[2]]==thiscond[2])]
+                plotdata = data[plotvar].loc[(data[groupby[0]]==thiscond[0]) 
+                    & (data[groupby[1]]==thiscond[1]) & (data[groupby[2]]==thiscond[2])]
+
+
+                #scatterdata = data[scattervar].loc[np.sum(data[groupby] == thiscond,axis=1)==len(groupby)]
+                #plotdata = data[plotvar].loc[np.sum(data[groupby] == thiscond,axis=1)==len(groupby)]
                                 
                 #compute the mean and SEM - this might be removed in the future 
                 #to enforce the data table to contain SEM and mean data explicitly.
@@ -379,3 +395,6 @@ def panelplots(data,plotvar,groupby,axes=None,scattervar=[],xlim=[],ylim=[],xlab
         #turn on legend
         if(legend.lower() == 'on'):
             ax.legend(fontsize='x-small',loc=0)
+           
+    if(not title is None):
+        h.suptitle(title,fontsize=14)

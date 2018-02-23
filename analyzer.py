@@ -46,9 +46,20 @@ def get_models():
     
     #Full Dehaene 2007, separate scaling factor for each group
     #3 parameters
-    dm_var = lambda w,data: np.sqrt((w[0]**2)*data['augend']**2 + (w[1]**2)*data['addend']**2 + (w[2]**2)*data['singleton']**2)
-    dm_full = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
-             dm_var(w,data)).cdf(0)
+    dm_sd = lambda w,data: np.sqrt((w[0]**2)*data['augend']**2 + (w[1]**2)*data['addend']**2 + (w[2]**2)*data['singleton']**2)
+    dm_noweight = lambda w,data: 1-scipy.stats.norm(data['augend']+data['addend']-data['singleton'],
+             dm_sd(w,data)).cdf(0)
+    
+    dm_var_nonlinear = lambda w,data: np.power((w[0]**(1.0/w[3]))*data['augend']**2 
+                            + (w[1]**(1.0/w[3]))*data['addend']**2 + (w[2]**(1.0/w[3]))*data['singleton']**2,w[3])
+    
+#    dm_var_nonlinear = lambda w,data: np.power((w[0])*data['augend']**2 
+#                            + (w[1])*data['addend']**2 + (w[2])*data['singleton']**2,np.exp(w[3]))
+    
+    dm_full_nonlinear = lambda w,data: 1-scipy.stats.norm(w[0] + w[1]*data['augend']
+                    +w[2]*data['addend']-w[3]*data['singleton'],
+                    np.sqrt(dm_var_nonlinear(w[4:],data))).cdf(0)
+    
     
     #Dehaene model w/ one scaling factor, and separate weight for each element of prior. 
     #Meant for FlatLO experiment only.
@@ -60,8 +71,8 @@ def get_models():
     
     #Dehaene model plus prior w/ optimal weighting of each
     #3 parameters
-    weightfun = lambda w,data: dm_var(w,data)/(dm_var(w,data)+pcs_var[data['singleton']-1])
-    dm_prior_optimal = lambda w,data: (1-weightfun(w,data))*dm_full(w,data) + weightfun(w,data)*pcs[data['singleton']-1]
+    weightfun = lambda w,data: dm_sd(w,data)/(dm_sd(w,data)+pcs_var[data['singleton']-1])
+    dm_prior_optimal = lambda w,data: (1-weightfun(w,data))*dm_noweight(w,data) + weightfun(w,data)*pcs[data['singleton']-1]
 
     #Linear addition model.
     #4 parameters
@@ -74,7 +85,7 @@ def get_models():
                 (1-ratiofun(data)*w[1])*(data['sum']-data['singleton']) + ratiofun(data)*w[1]*data['sing_prior'])
     
     #2 parameters
-    norm_coef = lambda w,q1,q2: 1.0/(1.0+w[0]*np.power(np.power(np.abs(q1),w[1]) + np.power(np.abs(q2),w[1]),(1.0/w[1])) )
+    norm_coef = lambda w,q1,q2: 1.0/( 1.0 + w[0]*np.power(np.power(np.abs(q1,dtype='float64'),w[1]) + np.power(np.abs(q2,dtype='float64'),w[1]),(1.0/w[1])) )
     livingstone_norm = lambda w,data: logistic(w[2]*(norm_coef(w[0:2],data['addend'],data['singleton'])*data['augend'] 
         + norm_coef(w[0:2],data['augend'],data['singleton'])*data['addend'] 
         - norm_coef(w[0:2],data['augend'],data['addend'])*data['singleton']))
@@ -96,8 +107,15 @@ def get_models():
     log_aas = lambda w,data: logistic(w[0] + w[1]*np.log(data['augend']) + w[2]*np.log(data['addend'])
         + w[3]*np.log(data['singleton']))
     
+    #a model where the power of the augend, addend, and singleton are free parameters
+    #7 free parameters
+    power = lambda w,data: logistic(w[0] + w[1]*data['augend']**w[4] + 
+            w[2]*np.abs(data['addend'])**w[5] + w[3]*data['singleton']**w[6])
+    
+    
     models = {'cost':cost,'dm_onescale':dm_onescale,
-    'dm_full':dm_full,
+    'dm_noweight':dm_noweight,
+    'dm_full_nonlinear':dm_full_nonlinear,
     'dm_prior_weighting':dm_prior_weighting,
     'linear':linear,
     'dm_prior_optimal':dm_prior_optimal,
@@ -106,7 +124,8 @@ def get_models():
     'livingstone_norm':livingstone_norm,
     'logarithmic':logarithmic,
     'logarithmic2':logarithmic2,
-    'log_aas':log_aas}
+    'log_aas':log_aas,
+    'power':power}
     
     return models
 

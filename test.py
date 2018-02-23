@@ -19,6 +19,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
+import matplotlib
 from matplotlib.backends.backend_pdf import PdfPages
 import pdb
 from sklearn.decomposition import PCA
@@ -1030,3 +1031,176 @@ from mpl_toolkits.mplot3d import Axes3D
 fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
 ax.scatter(transformed_data[:,0],transformed_data[:,1],transformed_data[:,2])
+
+#%%
+
+query = '''
+        SELECT animal,experiment,augend,addend,singleton,AVG(chose_sum==((augend+addend)>singleton)) as pcor
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        GROUP BY animal,experiment,augend,addend,singleton
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+dm_var = lambda w,data: np.sqrt((w[0]**2)*data['augend']**2 + (w[1]**2)*data['addend']**2 + (w[2]**2)*data['singleton']**2)
+data['dm_var'] = dm_var([1,1,1],data)#np.power(dm_var([1,1,1],data),2)
+data['ratio'] = np.min([data['augend']+data['addend'],data['singleton']],axis=0)/np.max([data['augend']+data['addend'],data['singleton']],axis=0)
+data['diff'] = data['augend']+data['addend']-data['singleton']
+
+#
+data.groupby(['dm_var','diff'])['chose_sum'].mean()
+
+
+height_per_panel = 6
+width_per_panel = 6
+h,ax = plt.subplots(1,2,figsize=[2*width_per_panel,1*height_per_panel])
+Plotter.scatter(ax[0],xdata = data['diff'].loc[data['experiment']=='Addition'],
+                ydata = data['dm_var'].loc[data['experiment']=='Addition'],
+                xlabel='Sum-Singleton',ylabel='sqrt(var)')
+Plotter.scatter(ax[1],xdata = data['diff'].loc[data['experiment']=='Subtraction'],
+                ydata = data['dm_var'].loc[data['experiment']=='Subtraction'],
+                xlabel='Sum-Singleton',ylabel='sqrt(var)')
+
+scipy.stats.spearmanr(data['ratio'].loc[data['experiment']=='Addition'],
+                      data['dm_var'].loc[data['experiment']=='Addition'])
+scipy.stats.spearmanr(data['ratio'].loc[data['experiment']=='Subtraction'],
+                      data['dm_var'].loc[data['experiment']=='Subtraction'])
+
+[scipy.stats.pearsonr(data['dm_var'].loc[(data['experiment']==x) & (data['animal']==y)],data['pcor'].loc[(data['experiment']==x) & (data['animal']==y)])
+     for x,y in zip(['Addition','Subtraction','Addition','Subtraction'],['Xavier','Xavier','Ruffio','Ruffio'])]
+
+[(x,y) for x,y in zip(['Addition','Subtraction','Addition','Subtraction'],['Xavier','Xavier','Ruffio','Ruffio'])]
+
+
+height_per_panel = 6
+width_per_panel = 6
+h,ax = plt.subplots(2,2,figsize=[2*width_per_panel,2*height_per_panel])
+Plotter.scatter(ax[0,0],xdata=data['dm_var'].loc[(data['experiment']=='Addition') & (data['animal']=='Xavier')],
+                ydata=data['pcor'].loc[(data['experiment']=='Addition') & (data['animal']=='Xavier')],xlabel='Internal variance',ylabel='accuracy',
+                title='Monkey X, Addition',ylim=[0,1],xlim=[],xticks=[],yticks=[0,0.25,0.5,0.75,1],corrline='on')
+Plotter.scatter(ax[0,1],xdata=data['dm_var'].loc[(data['experiment']=='Subtraction') & (data['animal']=='Xavier')],
+                ydata=data['pcor'].loc[(data['experiment']=='Subtraction') & (data['animal']=='Xavier')],xlabel='Internal variance',ylabel='accuracy',
+                title='Monkey X, Subtraction',ylim=[0,1],xlim=[],xticks=[],yticks=[0,0.25,0.5,0.75,1],corrline='on')
+Plotter.scatter(ax[1,0],xdata=data['dm_var'].loc[(data['experiment']=='Addition') & (data['animal']=='Ruffio')],
+                ydata=data['pcor'].loc[(data['experiment']=='Addition') & (data['animal']=='Ruffio')],xlabel='Internal variance',ylabel='accuracy',
+                title='Monkey R, Addition',ylim=[0,1],xlim=[],xticks=[],yticks=[0,0.25,0.5,0.75,1],corrline='on')
+Plotter.scatter(ax[1,1],xdata=data['dm_var'].loc[(data['experiment']=='Subtraction') & (data['animal']=='Ruffio')],
+                ydata=data['pcor'].loc[(data['experiment']=='Subtraction') & (data['animal']=='Ruffio')],xlabel='Internal variance',ylabel='accuracy',
+                title='Monkey R, Subtraction',ylim=[0,1],xlim=[],xticks=[],yticks=[0,0.25,0.5,0.75,1],corrline='on')
+
+
+#%%
+
+
+query = '''
+        SELECT animal,experiment,augend,addend,singleton,chose_sum==((augend+addend)>singleton) as cor,
+        chose_sum
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+dm_var = lambda w,data: np.sqrt((w[0]**2)*data['augend']**2 + (w[1]**2)*data['addend']**2 + (w[2]**2)*data['singleton']**2)
+data['dm_var'] = np.power(dm_var([1,1,1],data),2)
+data['ratio'] = np.min([data['augend']+data['addend'],data['singleton']],axis=0)/np.max([data['augend']+data['addend'],data['singleton']],axis=0)
+data['diff'] = data['augend']+data['addend']-data['singleton']
+
+#For unique combinations of diff and dm_var, look at p(choose_sum)
+choice_data = data.groupby(['dm_var','diff','animal','experiment'],as_index=False)['chose_sum'].mean()
+choice_data['const'] = 1
+
+
+height_per_panel = 6
+width_per_panel = 6
+udiff = np.unique(choice_data['diff'])
+h,ax = plt.subplots(2,2,figsize=[2*width_per_panel,2*height_per_panel])
+animals = ['Xavier','Ruffio']
+experiments = ['Addition','Subtraction']
+cmap = matplotlib.cm.get_cmap('YlOrRd')
+for i in range(0,len(animals)):
+    for j in range(0,len(experiments)):
+        expcond = (choice_data['animal']==animals[i]) & (choice_data['experiment']==experiments[j])
+        uvar = np.unique(choice_data['dm_var'].loc[expcond])
+        for d in udiff:
+            cond = (choice_data['diff']==d) & expcond
+            for v in uvar:
+                norm = matplotlib.colors.Normalize(vmin=choice_data['dm_var'].loc[expcond].min(),
+                                                   vmax=choice_data['dm_var'].loc[expcond].max())
+                color = cmap(norm(v))
+                if(len(choice_data['chose_sum'].loc[cond & (choice_data['dm_var']==v)])>0):
+                    Plotter.scatter(ax[i,j],xdata=d,ydata=choice_data['chose_sum'].loc[cond & (choice_data['dm_var']==v)],color=color,
+                                    title=animals[i]+', '+experiments[j],xlabel='Diff',ylabel='P(choose sum)')
+
+Plotter.panelplots(data=choice_data,plotvar='chose_sum',groupby=['diff','const','dm_var'],axes=None,scattervar=[],xlim=[0,300],ylim=[0,1],xlabel=[],ylabel=[],
+               xticks=None,horiz=None,maxcol=4,legend='on')
+
+
+#%%
+#Plot p(choose sum) as a function of internal variance
+query = '''
+        SELECT animal,experiment,augend,addend,singleton,chose_sum==((augend+addend)>singleton) as cor,
+        chose_sum
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+dm_var = lambda w,data: np.sqrt((w[0]**2)*data['augend']**2 + (w[1]**2)*data['addend']**2 + (w[2]**2)*data['singleton']**2)
+data['dm_var'] = np.power(dm_var([1,1,1],data),2)
+data['ratio'] = np.min([data['augend']+data['addend'],data['singleton']],axis=0)/np.max([data['augend']+data['addend'],data['singleton']],axis=0)
+data['diff'] = data['augend']+data['addend']-data['singleton']
+
+Plotter.panelplots(data=choice_data.loc[choice_data['experiment']=='Subtraction'],plotvar='chose_sum',groupby=['diff','animal','dm_var'],
+                   axes=None,scattervar=[],xlim=[0,300],ylim=[0,1],xlabel='Int.Var.',ylabel='p(choose sum)',
+               xticks=None,horiz=None,maxcol=4,legend='on')
+Plotter.panelplots(data=choice_data.loc[choice_data['experiment']=='Addition'],plotvar='chose_sum',groupby=['diff','animal','dm_var'],
+                   axes=None,scattervar=[],xlim=[0,300],ylim=[0,1],xlabel='Int.Var.',ylabel='p(choose sum)',
+               xticks=None,horiz=None,maxcol=4,legend='on')
+
+
+#%%
+#Plot performance in all trial types for addition & subtraction experiments
+
+query = '''
+        SELECT animal,experiment,augend,addend,singleton,chose_sum==((augend+addend)>singleton) as cor,
+        chose_sum,augend+addend-singleton as diff
+        FROM behavioralstudy
+        WHERE experiment in ('Addition','Subtraction')
+        ORDER BY animal,session
+'''
+data = Helper.getData(cur,query)
+
+groupby = ['animal','experiment']
+lr_model = 'chose_sum ~ augend + addend + singleton + np.power(augend,2) + np.power(addend,2) + np.power(singleton,2)'
+lr_out = Analyzer.logistic_regression(data,lr_model,groupby=groupby)
+
+
+with PdfPages('D:\\Bart\\Dropbox\\AddSubtract_Study.pdf') as pdf:
+
+    cond = (data['experiment']=='Subtraction') & (data['animal']=='Xavier')
+    Plotter.panelplots(data=data.loc[cond],plotvar='chose_sum',groupby=['augend','addend','diff'],
+                       axes=None,scattervar=[],xlim=[-8,8],ylim=[0,1],xlabel='Difference - Singleton',ylabel='p(choose sum)',
+                   xticks=[],horiz=None,title='Subtraction, Xavier',maxcol=3,legend='on')
+    pdf.savefig()
+
+    cond = (data['experiment']=='Subtraction') & (data['animal']=='Ruffio')
+    Plotter.panelplots(data=data.loc[cond],plotvar='chose_sum',groupby=['augend','addend','diff'],
+                       axes=None,scattervar=[],xlim=[-8,8],ylim=[0,1],xlabel='Difference - Singleton',ylabel='p(choose sum)',
+                   xticks=[],horiz=None,title='Subtraction, Ruffio',maxcol=3,legend='on')
+    pdf.savefig()
+    
+    cond = (data['experiment']=='Addition') & (data['animal']=='Xavier')
+    Plotter.panelplots(data=data.loc[cond],plotvar='chose_sum',groupby=['augend','addend','diff'],
+                       axes=None,scattervar=[],xlim=[-8,8],ylim=[0,1],xlabel='Sum - Singleton',ylabel='p(choose sum)',
+                   xticks=[],horiz=None,title='Addition, Xavier',maxcol=3,legend='on')
+    pdf.savefig()
+        
+    cond = (data['experiment']=='Addition') & (data['animal']=='Ruffio')
+    Plotter.panelplots(data=data.loc[cond],plotvar='chose_sum',groupby=['augend','addend','diff'],
+                       axes=None,scattervar=[],xlim=[-8,8],ylim=[0,1],xlabel='Sum - Singleton',ylabel='p(choose sum)',
+                   xticks=[],horiz=None,title='Addition, Ruffio',maxcol=3,legend='on')
+    pdf.savefig()
+    
