@@ -24,4 +24,4 @@ make_figures: this contains analysis and plotting routines to make the figures t
 
 
 
-Anything else is a script or for development purposes, and there is no guarantee that it will run. Scripts that begin with 'TEST' are playgrounds for development, and where exploratory analysis takes place.
+Anything else is a script or for development purposes, and there is no guarantee that it will run. Scripts that begin with 'TEST' are playgrounds for development, and where exploratory analysis takes place. These files are intended for my use only.
